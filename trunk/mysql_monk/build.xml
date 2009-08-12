@@ -30,5 +30,15 @@
         </ant>		
     </target>
 	
-
+	
+    <target name="install" description="installs the built zip">
+        <loadproperties srcfile="build.properties"></loadproperties>
+        <untar 
+        	compression="gzip"
+        	dest="${install.dir}"
+        	src="build/mysqlmonk-${version}.tar.gz">
+        </untar>
+    	<symlink link="/etc/init.d/mysqlmonk" resource="${install.dir}/mysqlmonk"></symlink>
+    	
+    </target>
 </project>
