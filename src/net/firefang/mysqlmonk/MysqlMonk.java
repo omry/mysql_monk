@@ -33,9 +33,9 @@ public class MysqlMonk
 {
 	public static Logger logger = Logger.getLogger(MysqlMonk.class);
 	
-	static int checkInterval;
-	static int updateInterval;
-	static int maxAllowedLag;
+	int checkInterval;
+	int updateInterval;
+	int maxAllowedLag;
 	
 	private Set<String> s_hosts;
 	private Map<String, ServerDef> s_serversMap;
@@ -134,7 +134,7 @@ public class MysqlMonk
 		}
 	}
 
-	private void monitor() throws SQLException
+	private void monitor() throws Exception
 	{
 		ensuredEnstalled();
 		startUpdateThread();
@@ -519,7 +519,7 @@ public class MysqlMonk
 		}	
 	}
 
-	public void stop()
+	public void stop() throws Exception
 	{
 		m_running = false;
 		m_checkerThread.interrupt();
@@ -540,5 +540,8 @@ public class MysqlMonk
 		catch (InterruptedException e)
 		{
 		}
+		
+		
+		logger.info("Stopping jetty server");
 	}
 }
