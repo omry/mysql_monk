@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ======================================================================
+	MySQL Monk. to build please see http://ebuild.firefang.net 
+     ====================================================================== -->
+<project name="mysql_monk" default="build">
+    
+	<target name="build" description="calls ebuild to build this project">
+        <ant dir="../ebuild" antfile="../ebuild/build.xml">
+        	<property name="project" value="mysql_monk"/>
+        </ant>
+    </target>
+	
+	<target name="clean">
+        <ant dir="../ebuild" antfile="../ebuild/build.xml" target="clean">
+        	<property name="project" value="mysql_monk"/>
+        </ant>		
+    </target>
+	
+
+</project>
