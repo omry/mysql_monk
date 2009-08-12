@@ -8,10 +8,10 @@ import net.firefang.swush.Swush;
  */
 public interface EventHandler
 {
-	public void lagStarted(Server server, String message);
-	public void lagEnded(Server server, String message);
-	public void error(Server server, String message, Exception ex);
-	public void clearError(Server server, String message);
+	public void lagStarted(ServerDef server, String message);
+	public void lagEnded(ServerDef server, String message);
+	public void error(ServerDef server, String message, Exception ex);
+	public void clearError(ServerDef server, String message);
 	public void init(Swush sw) throws Exception;
 }
 

@@ -8,6 +8,20 @@
         <ant dir="../ebuild" antfile="../ebuild/build.xml">
         	<property name="project" value="mysql_monk"/>
         </ant>
+		
+		
+		<property name="build.properties" value="build.properties"/>
+        <loadproperties srcfile="${build.properties}"></loadproperties>
+    	<chmod perm="+x" file="build/dist/mysqlmonk"/>
+    	<chmod perm="+x" file="build/dist/wrapper-linux-x86-32"/>
+    	<chmod perm="+x" file="build/dist/wrapper-linux-x86-64"/>
+		<delete file="build/${zip.name}"></delete>
+		<rename dest="build/mysqlmonk" src="build/dist"/>
+		<exec dir="build/" executable="tar">
+			<arg value="czf"/>
+			<arg value="mysqlmonk-${version}.tar.gz"/>
+			<arg value="mysqlmonk"/>
+		</exec>
     </target>
 	
 	<target name="clean">

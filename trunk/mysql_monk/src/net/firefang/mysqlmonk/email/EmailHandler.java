@@ -4,7 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
 import net.firefang.mysqlmonk.EventHandler;
-import net.firefang.mysqlmonk.Server;
+import net.firefang.mysqlmonk.ServerDef;
 import net.firefang.swush.Swush;
 
 /**
@@ -30,7 +30,7 @@ public class EmailHandler implements EventHandler
 	}	
 	
 	@Override
-	public void error(Server server, String message, Exception ex)
+	public void error(ServerDef server, String message, Exception ex)
 	{
 		String email = "An error occured in MySQLMonk :\n" + message + "\n";
 		if (ex != null)
@@ -46,19 +46,19 @@ public class EmailHandler implements EventHandler
 
 	
 	@Override
-	public void clearError(Server server, String message)
+	public void clearError(ServerDef server, String message)
 	{
 		m_emailSender.send(m_from, m_recepients, "MySQLMonk -ERROR : " + message, message);
 	}		
 	
 	@Override
-	public void lagEnded(Server server, String message)
+	public void lagEnded(ServerDef server, String message)
 	{
 		m_emailSender.send(m_from, m_recepients, "MySQLMonk -LAG: " + message, message);
 	}
 
 	@Override
-	public void lagStarted(Server server, String message)
+	public void lagStarted(ServerDef server, String message)
 	{
 		m_emailSender.send(m_from, m_recepients, "MySQLMonk +LAG: " + message, message);
 	}

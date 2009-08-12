@@ -21,6 +21,7 @@ import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
+import org.apache.log4j.xml.DOMConfigurator;
 import org.logicalcobwebs.proxool.ProxoolException;
 import org.logicalcobwebs.proxool.ProxoolFacade;
 
@@ -30,20 +31,31 @@ import org.logicalcobwebs.proxool.ProxoolFacade;
  */
 public class MysqlMonk 
 {
-	static Logger logger = Logger.getLogger(MysqlMonk.class);
+	public static Logger logger = Logger.getLogger(MysqlMonk.class);
 	
 	static int checkInterval;
 	static int updateInterval;
 	static int maxAllowedLag;
 	
-	private static Set<String> s_hosts;
-	private static Map<String, Server> s_serversMap;
-	private static Map<String, Server> s_aliasesMap;
-	private static List<EventHandler> eventHandlers;
+	private Set<String> s_hosts;
+	private Map<String, ServerDef> s_serversMap;
+	private Map<String, ServerDef> s_aliasesMap;
+	private List<EventHandler> eventHandlers;
+
+	private Thread m_checkerThread;
+
+	private Thread m_masterUpdater;
+	
+	private boolean m_running = true;
 
 	public static void main(String[] args) throws Exception
 	{
-		configureLog4J();
+		new MysqlMonk(args);
+	}
+	
+	public MysqlMonk(String args[]) throws Exception
+	{
+		DOMConfigurator.configure("conf/log4j.xml");
 		
 		CmdLineParser p = new CmdLineParser();
 		p.addStringOption('c', "conf");
@@ -52,7 +64,7 @@ public class MysqlMonk
 		p.addStringOption("server");
 		p.parse(args);
 		
-		String conf = (String) p.getOptionValue("conf", "monk.conf");
+		String conf = (String) p.getOptionValue("conf", "conf/monk.conf");
 		loadConfiguration(conf);
 		
 		boolean install = (Boolean)p.getOptionValue("install", Boolean.FALSE);
@@ -73,7 +85,7 @@ public class MysqlMonk
 			Collections.sort(servers);
 			for(String s : servers)
 			{
-				Server server = s_serversMap.get(s);
+				ServerDef server = s_serversMap.get(s);
 				boolean hasAlias = s_aliasesMap.containsKey(server.host);
 				logger.info(s  + (hasAlias ? " (alias = " + server.host + ")" : ""));
 			}
@@ -82,11 +94,12 @@ public class MysqlMonk
 		{
 			monitor();
 		}
+
 	}
 
-	private static boolean isInstalled(String sid) throws SQLException
+	private boolean isInstalled(String sid) throws SQLException
 	{
-		Server server = getServer(sid);
+		ServerDef server = getServer(sid);
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
@@ -99,9 +112,9 @@ public class MysqlMonk
 		}		
 	}
 	
-	private static void installInto(String sid) throws SQLException
+	private void installInto(String sid) throws SQLException
 	{
-		Server server = getServer(sid);
+		ServerDef server = getServer(sid);
 		logger.info("Installing into master server " + server);
 		
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
@@ -121,16 +134,16 @@ public class MysqlMonk
 		}
 	}
 
-	private static void monitor() throws SQLException
+	private void monitor() throws SQLException
 	{
 		ensuredEnstalled();
 		startUpdateThread();
 		startCheckingThread();
 	}
 
-	private static void ensuredEnstalled() throws SQLException
+	private void ensuredEnstalled() throws SQLException
 	{
-		for (Server s : s_serversMap.values())
+		for (ServerDef s : s_serversMap.values())
 		{
 			if (!isInstalled(s.getID()))
 			{
@@ -139,19 +152,19 @@ public class MysqlMonk
 		}
 	}
 
-	private static void startCheckingThread()
+	private void startCheckingThread()
 	{
-		new Thread("Slave checker thread")
+		m_checkerThread = new Thread("Slave checker thread")
 		{
 			@Override
 			public void run()
 			{
 				logger.info("Starting checker thread, max allowed replication lag is " + maxAllowedLag + " seconds, checking every " + checkInterval + " seconds");
-				while(true)
+				while(m_running)
 				{
 					
 					long now = System.currentTimeMillis() / 1000;
-					for (Server s : s_serversMap.values())
+					for (ServerDef s : s_serversMap.values())
 					{
 						if (s.isSlave)
 						{
@@ -160,7 +173,7 @@ public class MysqlMonk
 								Connection c = DriverManager.getConnection(s.getConnectionAlias());
 								try
 								{
-									Server master = getServer(s.master);
+									ServerDef master = getServer(s.master);
 									String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
 									if (lastUpdate != null)
 									{
@@ -218,23 +231,26 @@ public class MysqlMonk
 					}
 				}
 			}
-		}.start();
+		};
+		
+		m_checkerThread.start();
 	}
 
-	private static void startUpdateThread()
+	
+	private void startUpdateThread()
 	{
-		new Thread("Master update thread")
+		m_masterUpdater = new Thread("Master update thread")
 		{
 			@Override
 			public void run()
 			{
 				logger.info("Updating masters every " + updateInterval + " seconds");
 				
-				while(true)
+				while(m_running)
 				{
 					
 					long now = System.currentTimeMillis() / 1000;
-					for (Server s : s_serversMap.values())
+					for (ServerDef s : s_serversMap.values())
 					{
 						if (s.isMaster)
 						{
@@ -290,7 +306,9 @@ public class MysqlMonk
 					}
 				}
 			}
-		}.start();
+		};
+		
+		m_masterUpdater.start();
 	}
 
 	static String getServerID(Connection c) throws SQLException
@@ -316,7 +334,7 @@ public class MysqlMonk
 		return null;
 	}
 
-	private static void loadConfiguration(String name) throws Exception
+	private void loadConfiguration(String name) throws Exception
 	{
 		logger.info("Loading " + name);
 		
@@ -329,19 +347,19 @@ public class MysqlMonk
 		checkInterval = conf.selectIntProperty("mysql_monk.monitor.check_interval", 5);
 		
 		List<Swush> servers = conf.select("mysql_monk.server");
-		s_serversMap = new HashMap<String, Server>();
-		s_aliasesMap = new HashMap<String, Server>();
+		s_serversMap = new HashMap<String, ServerDef>();
+		s_aliasesMap = new HashMap<String, ServerDef>();
 		
 		Set<String> removed = new HashSet<String>(); 
 		
 		for(Swush sw : servers)
 		{
-			Server s = new Server(sw);
+			ServerDef s = new ServerDef(sw);
 			String id = s.getID();
-			Server old = s_serversMap.put(id, s);
+			ServerDef old = s_serversMap.put(id, s);
 			if (old != null) throw new IllegalArgumentException("Duplicate server with id " + id);
 			
-			Server ss = s_aliasesMap.get(s.host);
+			ServerDef ss = s_aliasesMap.get(s.host);
 			if (ss != null)
 			{
 				removed.add(s.host); // host run multiple servers, shoud use fully qualified id (host_port) to access.
@@ -360,14 +378,14 @@ public class MysqlMonk
 		}
 		
 		
-		for(Server s : s_serversMap.values())
+		for(ServerDef s : s_serversMap.values())
 		{
 			String masterID = s.master;
 			if (masterID != null)
 			{
 				if (isServer(masterID))
 				{
-					Server master = getServer(masterID);
+					ServerDef master = getServer(masterID);
 					master.isMaster = true;
 					s.isSlave = true;
 				}
@@ -393,9 +411,9 @@ public class MysqlMonk
 		}
 	}
 
-	private static Server getServer(String id)
+	private ServerDef getServer(String id)
 	{
-		Server server = s_serversMap.get(id);
+		ServerDef server = s_serversMap.get(id);
 		if (server == null)
 			server = s_aliasesMap.get(id);
 		
@@ -403,9 +421,9 @@ public class MysqlMonk
 		return server;
 	}
 	
-	private static boolean isServer(String id)
+	private boolean isServer(String id)
 	{
-		Server server = s_serversMap.get(id);
+		ServerDef server = s_serversMap.get(id);
 		if (server == null)
 			server = s_aliasesMap.get(id);
 		
@@ -469,7 +487,7 @@ public class MysqlMonk
     	Logger.getLogger("org.logicalcobwebs").setLevel(Level.WARN);
 	}
 	
-	static void _lagStarted(Server server, String message)
+	void _lagStarted(ServerDef server, String message)
 	{
 		for(EventHandler handler : eventHandlers)
 		{
@@ -477,7 +495,7 @@ public class MysqlMonk
 		}
 	}
 	
-	static void _lagEnded(Server server, String message)
+	void _lagEnded(ServerDef server, String message)
 	{
 		for(EventHandler handler : eventHandlers)
 		{
@@ -485,7 +503,7 @@ public class MysqlMonk
 		}
 	}
 	
-	static void _error(Server server, String message, Exception ex)
+	void _error(ServerDef server, String message, Exception ex)
 	{
 		for(EventHandler handler : eventHandlers)
 		{
@@ -493,11 +511,34 @@ public class MysqlMonk
 		}	
 	}
 	
-	static void _clearError(Server server, String message)
+	void _clearError(ServerDef server, String message)
 	{
 		for(EventHandler handler : eventHandlers)
 		{
 			handler.clearError(server, message);
 		}	
+	}
+
+	public void stop()
+	{
+		m_running = false;
+		m_checkerThread.interrupt();
+		m_masterUpdater.interrupt();
+		
+		try
+		{
+			m_checkerThread.join();
+		}
+		catch (InterruptedException e)
+		{
+		}
+		
+		try
+		{
+			m_masterUpdater.join();
+		}
+		catch (InterruptedException e)
+		{
+		}
 	}
 }

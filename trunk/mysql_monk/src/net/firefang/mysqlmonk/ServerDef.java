@@ -9,7 +9,7 @@ import net.firefang.swush.Swush;
  * @author omry
  * @date Aug 10, 2009
  */
-public class Server
+public class ServerDef
 {
 	boolean isSlave = false;
 	boolean isMaster = false;
@@ -38,7 +38,7 @@ public class Server
 	boolean inError = false;
 	
 	
-	Server(Swush s)
+	ServerDef(Swush s)
 	{
 		host = s.selectProperty("server.host");
 		port = s.selectIntProperty("server.port", 3306);
@@ -90,7 +90,7 @@ public class Server
 		if (this == obj) return true;
 		if (obj == null) return false;
 		if (getClass() != obj.getClass()) return false;
-		Server other = (Server) obj;
+		ServerDef other = (ServerDef) obj;
 		if (dbName == null)
 		{
 			if (other.dbName != null) return false;
