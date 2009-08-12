@@ -38,7 +38,6 @@
         	dest="${install.dir}"
         	src="build/mysqlmonk-${version}.tar.gz">
         </untar>
-    	<symlink link="/etc/init.d/mysqlmonk" resource="${install.dir}/mysqlmonk"></symlink>
-    	
+    	<symlink link="/etc/init.d/mysqlmonk" resource="${install.dir}/mysqlmonk" overwrite="yes"></symlink>
     </target>
 </project>
