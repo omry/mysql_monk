@@ -32,7 +32,7 @@ public class EmailHandler implements EventHandler
 	@Override
 	public void error(ServerDef server, String message, Exception ex)
 	{
-		String email = "An error occured in MySQLMonk :\n" + message + "\n";
+		String email = server.niceName() + ":\n\nAn error occured in MySQLMonk :\n" + message + "\n";
 		if (ex != null)
 		{
 			ByteArrayOutputStream bout = new ByteArrayOutputStream();
@@ -41,14 +41,14 @@ public class EmailHandler implements EventHandler
 			String st = new String(bout.toByteArray());
 			email += st;
 		}
-		m_emailSender.send(m_from, m_recepients, "MySQLMonk +ERROR : " + message, email);
+		m_emailSender.send(m_from, m_recepients, "MySQLMonk +ERROR : " + server.niceName() + " : " + message, email);
 	}
 
 	
 	@Override
 	public void clearError(ServerDef server, String message)
 	{
-		m_emailSender.send(m_from, m_recepients, "MySQLMonk -ERROR : " + message, message);
+		m_emailSender.send(m_from, m_recepients, "MySQLMonk -ERROR : " + server.niceName() + " : " + message, message);
 	}		
 	
 	@Override
