@@ -136,12 +136,12 @@ public class MysqlMonk
 
 	private void monitor() throws Exception
 	{
-		ensuredEnstalled();
+		ensuredInstalled();
 		startUpdateThread();
 		startCheckingThread();
 	}
 
-	private void ensuredEnstalled() throws SQLException
+	private void ensuredInstalled() throws SQLException
 	{
 		for (ServerDef s : s_serversMap.values())
 		{
