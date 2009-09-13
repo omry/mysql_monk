@@ -182,7 +182,8 @@ public class MysqlMonk
 										if (masterUpdateTime != -1) // master was actually updated
 										{
 											long oldLag = s.slaveLag; 
-											s.slaveLag = masterUpdateTime - slaveUpdateTime;
+											s.slaveLag =  masterUpdateTime - slaveUpdateTime;
+											s.maxLag = Math.max(s.maxLag, s.slaveLag);
 											
 											if (oldLag != -1)
 											{
@@ -193,7 +194,8 @@ public class MysqlMonk
 												
 												if (oldLag >= maxAllowedLag && s.slaveLag < maxAllowedLag)
 												{
-													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName());
+													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLag + " seconds");
+													s.maxLag = 0;
 												}
 											}
 										}
