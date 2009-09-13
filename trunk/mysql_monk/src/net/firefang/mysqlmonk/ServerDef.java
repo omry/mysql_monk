@@ -35,6 +35,9 @@ public class ServerDef
 	// if slave, the lag from the server 
 	long slaveLag = 0;
 	
+	// maximum lag seen in this lag session
+	long maxLag;
+	
 	boolean inError = false;
 	
 	
