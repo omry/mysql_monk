@@ -53,7 +53,7 @@ public class ServerDef
 		master = s.selectProperty("server.master");
 		m_maxAllowedLag = s.selectLongProperty("server.max_allowed_lag", defaultMaxAllowedLag);
 	}
-
+	
 	public String getConnectionAlias()
 	{
 		return "proxool." + user + "_" + password + "_" + host + "_" + port + "_" + dbName;
@@ -61,7 +61,10 @@ public class ServerDef
 
 	public String toString()
 	{
-		return user + ":" + password + "@" + host + ":" + port + "/" + dbName;
+		String s = user + ":" + password + "@" + host + ":" + port + "/" + dbName;
+		if (isMaster) s += ", master";
+		if (isSlave) s += ", slave (max_lag=" + m_maxAllowedLag + "s)";
+		return s;
 	}
 
 	public String getID()
@@ -71,7 +74,7 @@ public class ServerDef
 	
 	public String niceName()
 	{
-		return host + ":" + port;
+		return host + (port != 3306 ? ":" + port : "");
 	}
 	
 	
@@ -126,5 +129,4 @@ public class ServerDef
 		else if (!user.equals(other.user)) return false;
 		return true;
 	}
-
 }

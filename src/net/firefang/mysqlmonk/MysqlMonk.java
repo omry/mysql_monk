@@ -400,6 +400,7 @@ public class MysqlMonk
 			}
 			
 			registerConnectionPool(s.getConnectionAlias(), s.host, s.port, s.dbName, s.user, s.password);
+			logger.info("Added server : " + s);
 		}
 		
 		eventHandlers = new ArrayList<EventHandler>();
