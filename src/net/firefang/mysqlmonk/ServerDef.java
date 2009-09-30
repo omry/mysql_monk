@@ -11,6 +11,8 @@ import net.firefang.swush.Swush;
  */
 public class ServerDef
 {
+	long m_maxAllowedLag = 0;
+	
 	boolean isSlave = false;
 	boolean isMaster = false;
 
@@ -36,12 +38,12 @@ public class ServerDef
 	long slaveLag = 0;
 	
 	// maximum lag seen in this lag session
-	long maxLag;
+	long maxLagSeen;
 	
 	boolean inError = false;
 	
 	
-	ServerDef(Swush s)
+	ServerDef(Swush s, int defaultMaxAllowedLag)
 	{
 		host = s.selectProperty("server.host");
 		port = s.selectIntProperty("server.port", 3306);
@@ -49,6 +51,7 @@ public class ServerDef
 		user = s.selectProperty("server.username");
 		password = s.selectProperty("server.password");
 		master = s.selectProperty("server.master");
+		m_maxAllowedLag = s.selectLongProperty("server.max_allowed_lag", defaultMaxAllowedLag);
 	}
 
 	public String getConnectionAlias()
