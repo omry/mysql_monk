@@ -35,7 +35,6 @@ public class MysqlMonk
 	
 	int checkInterval;
 	int updateInterval;
-	int maxAllowedLag;
 	
 	private Set<String> s_hosts;
 	private Map<String, ServerDef> s_serversMap;
@@ -159,7 +158,7 @@ public class MysqlMonk
 			@Override
 			public void run()
 			{
-				logger.info("Starting checker thread, max allowed replication lag is " + maxAllowedLag + " seconds, checking every " + checkInterval + " seconds");
+				logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
 				while(m_running)
 				{
 					
@@ -183,19 +182,19 @@ public class MysqlMonk
 										{
 											long oldLag = s.slaveLag; 
 											s.slaveLag =  masterUpdateTime - slaveUpdateTime;
-											s.maxLag = Math.max(s.maxLag, s.slaveLag);
+											s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
 											
 											if (oldLag != -1)
 											{
-												if (oldLag < maxAllowedLag && s.slaveLag >= maxAllowedLag)
+												if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
 												{
-													_lagStarted(s, "Server " + s.niceName() + " is lagging behind master " + master.niceName() + " by " + s.slaveLag + " seconds");
+													_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
 												}
 												
-												if (oldLag >= maxAllowedLag && s.slaveLag < maxAllowedLag)
+												if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
 												{
-													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLag + " seconds");
-													s.maxLag = 0;
+													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
+													s.maxLagSeen = 0;
 												}
 											}
 										}
@@ -345,7 +344,7 @@ public class MysqlMonk
 		Swush conf = new Swush(new File(name));
 		
 		updateInterval = conf.selectIntProperty("mysql_monk.monitor.update_interval", 10);
-		maxAllowedLag =  conf.selectIntProperty("mysql_monk.monitor.max_allowed_lag", 20);
+		int defaultMaxAllowedLag =  conf.selectIntProperty("mysql_monk.monitor.max_allowed_lag", 20);
 		checkInterval = conf.selectIntProperty("mysql_monk.monitor.check_interval", 5);
 		
 		List<Swush> servers = conf.select("mysql_monk.server");
@@ -356,7 +355,7 @@ public class MysqlMonk
 		
 		for(Swush sw : servers)
 		{
-			ServerDef s = new ServerDef(sw);
+			ServerDef s = new ServerDef(sw, defaultMaxAllowedLag);
 			String id = s.getID();
 			ServerDef old = s_serversMap.put(id, s);
 			if (old != null) throw new IllegalArgumentException("Duplicate server with id " + id);
