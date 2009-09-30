@@ -114,7 +114,7 @@ public class MysqlMonk
 	private void installInto(String sid) throws SQLException
 	{
 		ServerDef server = getServer(sid);
-		logger.info("Installing into master server " + server);
+		logger.info("Ensuring " + server.niceName() + " has mysql_monk table installed");
 		
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
