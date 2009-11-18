@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 
 import net.firefang.swush.Swush;
 
@@ -161,66 +162,84 @@ public class MysqlMonk
 				logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
 				while(m_running)
 				{
-					
-					long now = System.currentTimeMillis() / 1000;
-					for (ServerDef s : s_serversMap.values())
+					final CountDownLatch latch = new CountDownLatch(s_serversMap.size());
+					for (final ServerDef s : s_serversMap.values())
 					{
 						if (s.isSlave)
 						{
-							try
+							new Thread()
 							{
-								Connection c = DriverManager.getConnection(s.getConnectionAlias());
-								try
+								public void run() 
 								{
-									ServerDef master = getServer(s.master);
-									String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
-									if (lastUpdate != null)
+									long now = System.currentTimeMillis() / 1000;
+									try
 									{
-										long slaveUpdateTime = Long.parseLong(lastUpdate);
-										long masterUpdateTime = master.updateTime;
-										if (masterUpdateTime != -1) // master was actually updated
+										Connection c = DriverManager.getConnection(s.getConnectionAlias());
+										try
 										{
-											long oldLag = s.slaveLag; 
-											s.slaveLag =  masterUpdateTime - slaveUpdateTime;
-											s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
-											
-											if (oldLag != -1)
+											ServerDef master = getServer(s.master);
+											String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
+											if (lastUpdate != null)
 											{
-												if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
+												long slaveUpdateTime = Long.parseLong(lastUpdate);
+												long masterUpdateTime = master.updateTime;
+												if (masterUpdateTime != -1) // master was actually updated
 												{
-													_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
-												}
-												
-												if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
-												{
-													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
-													s.maxLagSeen = 0;
+													long oldLag = s.slaveLag; 
+													s.slaveLag =  masterUpdateTime - slaveUpdateTime;
+													s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
+													
+													if (oldLag != -1)
+													{
+														if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
+														{
+															_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
+														}
+														
+														if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
+														{
+															_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
+															s.maxLagSeen = 0;
+														}
+													}
 												}
 											}
 										}
+										finally
+										{
+											c.close();
+										}
+										s.updateTime = now;
+										
+										if (s.inError)
+										{
+											s.inError = false;
+											_clearError(s, "Error cleared");
+										}
+									}
+									catch (SQLException e)
+									{
+										if (!s.inError)
+										{
+											_error(s, "SQLException", e);
+											s.inError = true;
+										}
+									}
+									finally
+									{
+										latch.countDown();
 									}
 								}
-								finally
-								{
-									c.close();
-								}
-								s.updateTime = now;
-								
-								if (s.inError)
-								{
-									s.inError = false;
-									_clearError(s, "Error cleared");
-								}
-							}
-							catch (SQLException e)
-							{
-								if (!s.inError)
-								{
-									_error(s, "SQLException", e);
-									s.inError = true;
-								}
-							}
+							}.start();
 						}
+					}
+					
+					try
+					{
+						latch.await();
+					}
+					catch (InterruptedException e1)
+					{
 					}
 					
 					try
