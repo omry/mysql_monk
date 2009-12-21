@@ -150,7 +150,10 @@ public class MysqlMonk
 
 	private void startChecking()
 	{
-		ExecutorService pool = getThreadPool(s_serversMap.size(), "SlaveChecker_");
+		int ns = 0;
+		for (final ServerDef s : s_serversMap.values())	if (s.isSlave) ns++;
+		
+		ExecutorService pool = getThreadPool(ns, "SlaveChecker_");
 		logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
 		while(m_running)
 		{
@@ -163,71 +166,79 @@ public class MysqlMonk
 					{
 						public void run() 
 						{
-							long now = System.currentTimeMillis() / 1000;
-							try
+							synchronized (s)
 							{
-								Connection c = DriverManager.getConnection(s.getConnectionAlias());
-								
-								if (!s.m_installed)
-								{
-									ensureInstalled(s.getID());
-									s.m_installed = true;
-								}
-								
+								long now = System.currentTimeMillis() / 1000;
 								try
 								{
-									ServerDef master = getServer(s.master);
-									logger.debug("Checking lag in " + s.niceName());
-									String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
-									if (lastUpdate != null)
+									Connection c = DriverManager.getConnection(s.getConnectionAlias());
+									
+									if (!s.m_installed)
 									{
-										long slaveUpdateTime = Long.parseLong(lastUpdate);
-										long masterUpdateTime = master.updateTime;
-										if (masterUpdateTime != -1) // master was actually updated
+										ensureInstalled(s.getID());
+										s.m_installed = true;
+									}
+									
+									try
+									{
+										ServerDef master = getServer(s.master);
+										logger.debug("Checking lag in " + s.niceName());
+										String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
+										if (lastUpdate != null)
 										{
-											long oldLag = s.slaveLag; 
-											s.slaveLag =  masterUpdateTime - slaveUpdateTime;
-											s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
-											
-											if (oldLag != -1)
+											long slaveUpdateTime = Long.parseLong(lastUpdate);
+											long masterUpdateTime = master.updateTime;
+											if (masterUpdateTime != -1) // master was actually updated
 											{
-												if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
-												{
-													_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
-												}
+												long oldLag = s.slaveLag; 
+												s.slaveLag =  masterUpdateTime - slaveUpdateTime;
+												s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
 												
-												if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
+												if (oldLag != -1)
 												{
-													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
-													s.maxLagSeen = 0;
+													if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
+													{
+														_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
+													}
+													
+													if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
+													{
+														_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
+														s.maxLagSeen = 0;
+													}
 												}
 											}
 										}
 									}
+									finally
+									{
+										c.close();
+									}
+									s.updateTime = now;
+									
+									if (s.inError)
+									{
+										s.inError = false;
+										_clearError(s, "Error cleared");
+									}
+								}
+								catch (SQLException e)
+								{
+									String error = "SQLException";
+									if (e instanceof com.mysql.jdbc.CommunicationsException)
+									{
+										error = "Can't connect to database";
+									}
+									if (!s.inError)
+									{
+										_error(s, error, e);
+										s.inError = true;
+									}
 								}
 								finally
 								{
-									c.close();
+									latch.countDown();
 								}
-								s.updateTime = now;
-								
-								if (s.inError)
-								{
-									s.inError = false;
-									_clearError(s, "Error cleared");
-								}
-							}
-							catch (SQLException e)
-							{
-								if (!s.inError)
-								{
-									_error(s, "SQLException", e);
-									s.inError = true;
-								}
-							}
-							finally
-							{
-								latch.countDown();
 							}
 						}
 					});
@@ -257,61 +268,89 @@ public class MysqlMonk
 			{
 				logger.info("Updating masters every " + updateInterval + " seconds");
 				
+				final CountDownLatch latch = new CountDownLatch(s_serversMap.size());
+				int nm = 0;
+				for (ServerDef s : s_serversMap.values()) if (s.isMaster) nm++;
+				ExecutorService pool = getThreadPool(nm, "MasterUpdater_");
+				
 				while(m_running)
 				{
-					long now = System.currentTimeMillis() / 1000;
-					for (ServerDef s : s_serversMap.values())
+					final long now = System.currentTimeMillis() / 1000;
+					for (final ServerDef s : s_serversMap.values())
 					{
 						if (s.isMaster)
 						{
-							try
+							pool.execute(new Runnable()
 							{
-								if (!s.m_installed)
+								@Override
+								public void run()
 								{
-									ensureInstalled(s.getID());
-									s.m_installed = true;
-								}
-								
-								Connection c = DriverManager.getConnection(s.getConnectionAlias());
-								try
-								{
-									String mysqlServerID = getServerID(c);
-									if (mysqlServerID == null)
+									synchronized (s)
 									{
-										if (!s.inError)
+										try
 										{
-											_error(s, "server_id not configured", null);
-											s.inError = true;
+											if (!s.m_installed)
+											{
+												ensureInstalled(s.getID());
+												s.m_installed = true;
+											}
+											
+											Connection c = DriverManager.getConnection(s.getConnectionAlias());
+											try
+											{
+												String mysqlServerID = getServerID(c);
+												if (mysqlServerID == null)
+												{
+													if (!s.inError)
+													{
+														_error(s, "server_id not configured", null);
+														s.inError = true;
+													}
+												}
+												else
+												{
+													query(c, "REPLACE INTO " + s.dbName + ".mysql_monk(master_id,last_update) VALUES("+mysqlServerID+", FROM_UNIXTIME("+now+"))");
+													s.mysqlServerID = Integer.parseInt(mysqlServerID);
+												}
+											}
+											finally
+											{
+												c.close();
+											}
+											s.updateTime = now;
+											if (s.inError)
+											{
+												s.inError = false;
+												_clearError(s, "Error cleared");
+											}								
+										}
+										catch (SQLException e)
+										{
+											if (!s.inError)
+											{
+												_error(s, "SQLException", e);
+												s.inError = true;
+											}
+											
+										}
+										finally
+										{
+											latch.countDown();
 										}
 									}
-									else
-									{
-										query(c, "REPLACE INTO " + s.dbName + ".mysql_monk(master_id,last_update) VALUES("+mysqlServerID+", FROM_UNIXTIME("+now+"))");
-										s.mysqlServerID = Integer.parseInt(mysqlServerID);
-									}
 								}
-								finally
-								{
-									c.close();
-								}
-								s.updateTime = now;
-								if (s.inError)
-								{
-									s.inError = false;
-									_clearError(s, "Error cleared");
-								}								
-							}
-							catch (SQLException e)
-							{
-								if (!s.inError)
-								{
-									_error(s, "SQLException", e);
-									s.inError = true;
-								}
-								
-							}
+							});
 						}
 					}
+					
+					try
+					{
+						latch.await();
+					}
+					catch (InterruptedException e1)
+					{
+					}				
+					
 					
 					wait1(updateInterval);
 				}
