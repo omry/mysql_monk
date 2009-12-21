@@ -45,8 +45,6 @@ public class MysqlMonk
 	private Map<String, ServerDef> s_aliasesMap;
 	private List<EventHandler> eventHandlers;
 
-	private Thread m_checkerThread;
-
 	private Thread m_masterUpdater;
 	
 	private boolean m_running = true;
@@ -543,17 +541,7 @@ public class MysqlMonk
 	public void stop() throws Exception
 	{
 		m_running = false;
-		this.notifyAll();
-		m_checkerThread.interrupt();
 		m_masterUpdater.interrupt();
-		
-		try
-		{
-			m_checkerThread.join();
-		}
-		catch (InterruptedException e)
-		{
-		}
 		
 		try
 		{
@@ -563,8 +551,7 @@ public class MysqlMonk
 		{
 		}
 		
-		
-		logger.info("Stopping jetty server");
+		this.notifyAll();
 	}
 	
 	private ExecutorService getThreadPool(int nt, final String namePrefix)
