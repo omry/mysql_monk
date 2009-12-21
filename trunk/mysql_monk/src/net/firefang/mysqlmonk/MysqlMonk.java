@@ -15,6 +15,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 import net.firefang.swush.Swush;
 
@@ -74,7 +77,7 @@ public class MysqlMonk
 			String sid = (String)p.getOptionValue("server", -1);
 			if (sid == null) throw new RuntimeException("server not specified");
 			
-			installInto(sid);
+			ensureInstalled(sid);
 			
 			return;
 		}
@@ -99,30 +102,30 @@ public class MysqlMonk
 
 	private boolean isInstalled(String sid) throws SQLException
 	{
-		ServerDef server = getServer(sid);
+		ServerDef server = s_serversMap.get(sid);
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
-			String s = getVar(c, "SHOW TABLES LIKE 'myslq_monk'");
-			return s != null;
+			return isInstalled(c, server.dbName);
 		}
 		finally
 		{
 			c.close();
-		}		
+		}				
 	}
 	
-	private void installInto(String sid) throws SQLException
+	private boolean isInstalled(Connection c, String dbName) throws SQLException
+	{
+		return getVar(c, "SHOW TABLES IN "+dbName+" LIKE 'mysql_monk'") != null;
+	}
+	
+	private void ensureInstalled(String sid) throws SQLException
 	{
 		ServerDef server = getServer(sid);
-		logger.info("Ensuring " + server.niceName() + " has mysql_monk table installed");
-		
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
-			String sql = "SHOW TABLES IN "+server.dbName+" LIKE 'mysql_monk'";
-			String v = getVar(c, sql);
-			if (v == null)
+			if (isInstalled(sid))
 			{
 				String create = "CREATE TABLE IF NOT EXISTS " + server.dbName + ".mysql_monk ("
 				+ "master_id INT NOT NULL ,"
@@ -140,124 +143,113 @@ public class MysqlMonk
 
 	private void monitor() throws Exception
 	{
-		ensuredInstalled();
 		startUpdateThread();
-		startCheckingThread();
+		startChecking();
 	}
 
-	private void ensuredInstalled() throws SQLException
+	private void startChecking()
 	{
-		for (ServerDef s : s_serversMap.values())
+		ExecutorService pool = getThreadPool(s_serversMap.size(), "SlaveChecker_");
+		logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
+		while(m_running)
 		{
-			if (!isInstalled(s.getID()))
+			final CountDownLatch latch = new CountDownLatch(s_serversMap.size());
+			for (final ServerDef s : s_serversMap.values())
 			{
-				installInto(s.getID());
-			}
-		}
-	}
-
-	private void startCheckingThread()
-	{
-		m_checkerThread = new Thread("Slave checker thread")
-		{
-			@Override
-			public void run()
-			{
-				logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
-				while(m_running)
+				if (s.isSlave)
 				{
-					final CountDownLatch latch = new CountDownLatch(s_serversMap.size());
-					for (final ServerDef s : s_serversMap.values())
+					pool.execute(new Runnable()
 					{
-						if (s.isSlave)
+						public void run() 
 						{
-							new Thread()
+							long now = System.currentTimeMillis() / 1000;
+							try
 							{
-								public void run() 
+								Connection c = DriverManager.getConnection(s.getConnectionAlias());
+								
+								if (!s.m_installed)
 								{
-									long now = System.currentTimeMillis() / 1000;
-									try
+									logger.debug("Ensuring mysql_monk table is installed in " + s.niceName());
+									ensureInstalled(s.getID());
+									s.m_installed = true;
+								}
+								
+								try
+								{
+									ServerDef master = getServer(s.master);
+									logger.debug("Checking lag in " + s.niceName());
+									String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
+									if (lastUpdate != null)
 									{
-										Connection c = DriverManager.getConnection(s.getConnectionAlias());
-										try
+										long slaveUpdateTime = Long.parseLong(lastUpdate);
+										long masterUpdateTime = master.updateTime;
+										if (masterUpdateTime != -1) // master was actually updated
 										{
-											ServerDef master = getServer(s.master);
-											String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
-											if (lastUpdate != null)
+											long oldLag = s.slaveLag; 
+											s.slaveLag =  masterUpdateTime - slaveUpdateTime;
+											s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
+											
+											if (oldLag != -1)
 											{
-												long slaveUpdateTime = Long.parseLong(lastUpdate);
-												long masterUpdateTime = master.updateTime;
-												if (masterUpdateTime != -1) // master was actually updated
+												if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
 												{
-													long oldLag = s.slaveLag; 
-													s.slaveLag =  masterUpdateTime - slaveUpdateTime;
-													s.maxLagSeen = Math.max(s.maxLagSeen, s.slaveLag);
-													
-													if (oldLag != -1)
-													{
-														if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
-														{
-															_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
-														}
-														
-														if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
-														{
-															_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
-															s.maxLagSeen = 0;
-														}
-													}
+													_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
+												}
+												
+												if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
+												{
+													_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
+													s.maxLagSeen = 0;
 												}
 											}
 										}
-										finally
-										{
-											c.close();
-										}
-										s.updateTime = now;
-										
-										if (s.inError)
-										{
-											s.inError = false;
-											_clearError(s, "Error cleared");
-										}
-									}
-									catch (SQLException e)
-									{
-										if (!s.inError)
-										{
-											_error(s, "SQLException", e);
-											s.inError = true;
-										}
-									}
-									finally
-									{
-										latch.countDown();
 									}
 								}
-							}.start();
+								finally
+								{
+									c.close();
+								}
+								s.updateTime = now;
+								
+								if (s.inError)
+								{
+									s.inError = false;
+									_clearError(s, "Error cleared");
+								}
+							}
+							catch (SQLException e)
+							{
+								if (!s.inError)
+								{
+									_error(s, "SQLException", e);
+									s.inError = true;
+								}
+							}
+							finally
+							{
+								latch.countDown();
+							}
 						}
-					}
-					
-					try
-					{
-						latch.await();
-					}
-					catch (InterruptedException e1)
-					{
-					}
-					
-					try
-					{
-						Thread.sleep(checkInterval * 1000);
-					}
-					catch (InterruptedException e)
-					{
-					}
+					});
 				}
 			}
-		};
-		
-		m_checkerThread.start();
+			
+			try
+			{
+				latch.await();
+			}
+			catch (InterruptedException e1)
+			{
+			}
+			
+			try
+			{
+				Thread.sleep(checkInterval * 1000);
+			}
+			catch (InterruptedException e)
+			{
+			}
+		}
 	}
 
 	
@@ -272,7 +264,6 @@ public class MysqlMonk
 				
 				while(m_running)
 				{
-					
 					long now = System.currentTimeMillis() / 1000;
 					for (ServerDef s : s_serversMap.values())
 					{
@@ -280,6 +271,12 @@ public class MysqlMonk
 						{
 							try
 							{
+								if (!s.m_installed)
+								{
+									ensureInstalled(s.getID());
+									s.m_installed = true;
+								}
+								
 								Connection c = DriverManager.getConnection(s.getConnectionAlias());
 								try
 								{
@@ -530,6 +527,7 @@ public class MysqlMonk
 	
 	void _error(ServerDef server, String message, Exception ex)
 	{
+		logger.info("Error in " + server.niceName()  + " : " + server);
 		for(EventHandler handler : eventHandlers)
 		{
 			handler.error(server, message, ex);
@@ -538,6 +536,7 @@ public class MysqlMonk
 	
 	void _clearError(ServerDef server, String message)
 	{
+		logger.info("Error cleared in " + server.niceName()  + " : " + server);
 		for(EventHandler handler : eventHandlers)
 		{
 			handler.clearError(server, message);
@@ -569,4 +568,25 @@ public class MysqlMonk
 		
 		logger.info("Stopping jetty server");
 	}
+	
+	private ExecutorService getThreadPool(int nt, final String namePrefix)
+	{
+		return Executors.newFixedThreadPool(nt, new ThreadFactory()
+		{
+			int id = 0;
+			@Override
+			public Thread newThread(final Runnable r)
+			{
+				return new Thread(namePrefix + (id++))
+				{
+					@Override
+					public void run()
+					{
+						r.run();
+					}
+				};
+			}
+		});
+	}
+	
 }

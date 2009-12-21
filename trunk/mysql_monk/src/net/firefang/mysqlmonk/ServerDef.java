@@ -41,6 +41,8 @@ public class ServerDef
 	long maxLagSeen;
 	
 	boolean inError = false;
+
+	protected boolean m_installed = false;
 	
 	
 	ServerDef(Swush s, int defaultMaxAllowedLag)
