@@ -117,8 +117,9 @@ public class MysqlMonk
 	private boolean isInstalled(Connection c, String dbName) throws SQLException
 	{
 		String sql = "SHOW TABLES IN "+dbName+" LIKE 'mysql_monk'";
-		logger.debug(sql);
-		return getVar(c, sql) != null;
+		String b = getVar(c, sql);
+		logger.debug("++++" +  b);
+		return b != null;
 	}
 	
 	private void ensureInstalled(String sid) throws SQLException
