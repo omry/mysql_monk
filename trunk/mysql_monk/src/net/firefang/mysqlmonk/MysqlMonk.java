@@ -120,13 +120,17 @@ public class MysqlMonk
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
-			
-			String create = "CREATE TABLE IF NOT EXISTS " + server.dbName + ".mysql_monk ("
-					 + "master_id INT NOT NULL ,"
-					 + "last_update DATETIME NOT NULL ,"
-					 + "PRIMARY KEY ( master_id )"
-					 + ") ENGINE = InnoDB";
-			query(c, create);
+			String sql = "SHOW TABLES IN "+server.dbName+" LIKE 'mysql_monk'";
+			String v = getVar(c, sql);
+			if (v == null)
+			{
+				String create = "CREATE TABLE IF NOT EXISTS " + server.dbName + ".mysql_monk ("
+				+ "master_id INT NOT NULL ,"
+				+ "last_update DATETIME NOT NULL ,"
+				+ "PRIMARY KEY ( master_id )"
+				+ ") ENGINE = InnoDB";
+				query(c, create);
+			}
 		}
 		finally
 		{
