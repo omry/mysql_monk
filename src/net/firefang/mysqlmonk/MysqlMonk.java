@@ -118,7 +118,6 @@ public class MysqlMonk
 	{
 		String sql = "SHOW TABLES IN "+dbName+" LIKE 'mysql_monk'";
 		String b = getVar(c, sql);
-		logger.debug("++++" +  b);
 		return b != null;
 	}
 	
@@ -128,7 +127,7 @@ public class MysqlMonk
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
-			if (isInstalled(sid))
+			if (!isInstalled(sid))
 			{
 				logger.debug("Ensuring mysql_monk table is installed in " + server.niceName());
 				String create = "CREATE TABLE IF NOT EXISTS " + server.dbName + ".mysql_monk ("
