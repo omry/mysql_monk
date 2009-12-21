@@ -244,13 +244,8 @@ public class MysqlMonk
 			{
 			}
 			
-			try
-			{
-				Thread.sleep(checkInterval * 1000);
-			}
-			catch (InterruptedException e)
-			{
-			}
+			
+			wait1(checkInterval);
 		}
 	}
 
@@ -320,13 +315,7 @@ public class MysqlMonk
 						}
 					}
 					
-					try
-					{
-						Thread.sleep(updateInterval * 1000);
-					}
-					catch (InterruptedException e)
-					{
-					}
+					wait1(updateInterval);
 				}
 			}
 		};
@@ -554,6 +543,7 @@ public class MysqlMonk
 	public void stop() throws Exception
 	{
 		m_running = false;
+		this.notifyAll();
 		m_checkerThread.interrupt();
 		m_masterUpdater.interrupt();
 		
@@ -595,6 +585,23 @@ public class MysqlMonk
 				};
 			}
 		});
+	}
+
+	private void wait1(int waitSec)
+	{
+		synchronized (this)
+		{
+			if (m_running)
+			{
+				try
+				{
+					wait(waitSec * 1000);
+				}
+				catch (InterruptedException e)
+				{
+				}
+			}
+		}
 	}
 	
 }
