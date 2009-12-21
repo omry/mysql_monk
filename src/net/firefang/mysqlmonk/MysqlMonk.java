@@ -116,18 +116,20 @@ public class MysqlMonk
 	
 	private boolean isInstalled(Connection c, String dbName) throws SQLException
 	{
-		return getVar(c, "SHOW TABLES IN "+dbName+" LIKE 'mysql_monk'") != null;
+		String sql = "SHOW TABLES IN "+dbName+" LIKE 'mysql_monk'";
+		logger.debug(sql);
+		return getVar(c, sql) != null;
 	}
 	
 	private void ensureInstalled(String sid) throws SQLException
 	{
 		ServerDef server = getServer(sid);
-		logger.debug("Ensuring mysql_monk table is installed in " + server.niceName());
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
 			if (isInstalled(sid))
 			{
+				logger.debug("Ensuring mysql_monk table is installed in " + server.niceName());
 				String create = "CREATE TABLE IF NOT EXISTS " + server.dbName + ".mysql_monk ("
 				+ "master_id INT NOT NULL ,"
 				+ "last_update DATETIME NOT NULL ,"
