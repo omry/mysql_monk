@@ -122,6 +122,7 @@ public class MysqlMonk
 	private void ensureInstalled(String sid) throws SQLException
 	{
 		ServerDef server = getServer(sid);
+		logger.debug("Ensuring mysql_monk table is installed in " + server.niceName());
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
@@ -169,7 +170,6 @@ public class MysqlMonk
 								
 								if (!s.m_installed)
 								{
-									logger.debug("Ensuring mysql_monk table is installed in " + s.niceName());
 									ensureInstalled(s.getID());
 									s.m_installed = true;
 								}
@@ -430,6 +430,12 @@ public class MysqlMonk
 			EventHandler handler = (EventHandler) Class.forName(clazz).newInstance();
 			handler.init(sw);
 			eventHandlers.add(handler);
+			logger.debug("Adding event handler : " + handler.getClass().getName());
+		}
+		
+		if (eventHandlers.size() == 0)
+		{
+			logger.warn("No event handlers specified!");
 		}
 	}
 
@@ -527,7 +533,7 @@ public class MysqlMonk
 	
 	void _error(ServerDef server, String message, Exception ex)
 	{
-		logger.info("Error in " + server.niceName()  + " : " + server);
+		logger.info("Error in " + server.niceName()  + " : " + server, ex);
 		for(EventHandler handler : eventHandlers)
 		{
 			handler.error(server, message, ex);
