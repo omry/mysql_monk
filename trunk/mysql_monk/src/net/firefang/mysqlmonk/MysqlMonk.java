@@ -540,6 +540,7 @@ public class MysqlMonk
 
 	public void stop() throws Exception
 	{
+		logger.info("Stopping MysqlMonk");
 		m_running = false;
 		m_masterUpdater.interrupt();
 		
@@ -551,7 +552,10 @@ public class MysqlMonk
 		{
 		}
 		
-		this.notifyAll();
+		synchronized (this)
+		{
+			notifyAll();
+		}
 	}
 	
 	private ExecutorService getThreadPool(int nt, final String namePrefix)
