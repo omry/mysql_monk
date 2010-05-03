@@ -10,6 +10,5 @@
 	<classpathentry kind="lib" path="lib/log4j-1.2.15.jar"/>
 	<classpathentry kind="lib" path="lib/proxool-cglib.jar"/>
 	<classpathentry kind="lib" path="lib/mail.jar"/>
-	<classpathentry kind="lib" path="lib/wrapper.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

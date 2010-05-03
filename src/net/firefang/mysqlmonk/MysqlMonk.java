@@ -56,7 +56,6 @@ public class MysqlMonk
 	
 	public MysqlMonk(String args[]) throws Exception
 	{
-		DOMConfigurator.configure("conf/log4j.xml");
 		
 		CmdLineParser p = new CmdLineParser();
 		p.addStringOption('c', "conf");
@@ -65,7 +64,10 @@ public class MysqlMonk
 		p.addStringOption("server");
 		p.parse(args);
 		
+		
 		String conf = (String) p.getOptionValue("conf", "conf/monk.conf");
+		File dir = new File(conf).getAbsoluteFile().getParentFile();
+		DOMConfigurator.configure(dir + "/log4j.xml");
 		loadConfiguration(conf);
 		
 		boolean install = (Boolean)p.getOptionValue("install", Boolean.FALSE);
