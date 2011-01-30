@@ -104,10 +104,6 @@ public class MysqlSlaveStatusHandler implements EventHandler
 				}
 
 			}
-			else
-			{
-				sendSmtpMessage(server, replicationStopMsg + ", not configured for restart.");
-			}
 		}
 		catch (SQLException e)
 		{
@@ -265,10 +261,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 
 	private boolean isMySqlSlaveOk(MysqlSlaveStatus slaveStatus)
 	{
-		if (slaveStatus.isSlaveIoRunning() && slaveStatus.isSlaveSqlRunning())
-			return true;
-		else
-			return false;
+		return slaveStatus.isSlaveIoRunning() && slaveStatus.isSlaveSqlRunning();
 	}
 
 	private boolean isRestartErrorNum(int errNum)
