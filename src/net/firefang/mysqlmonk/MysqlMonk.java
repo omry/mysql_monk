@@ -162,11 +162,11 @@ public class MysqlMonk
 		int ns = 0;
 		for (final ServerDef s : s_serversMap.values())	if (s.isSlave) ns++;
 		
-		ExecutorService pool = getThreadPool(ns, "SlaveChecker_");
+		ExecutorService pool = getThreadPool(Math.max(1, ns), "SlaveChecker_");
 		logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
 		while(m_running)
 		{
-			final CountDownLatch latch = new CountDownLatch(s_serversMap.size());
+			final CountDownLatch latch = new CountDownLatch(ns);
 			for (final ServerDef s : s_serversMap.values())
 			{
 				if (s.isSlave)
@@ -181,7 +181,6 @@ public class MysqlMonk
 								try
 								{
 									Connection c = DriverManager.getConnection(s.getConnectionAlias());
-									
 									if (!s.m_installed)
 									{
 										ensureInstalled(s.getID());
@@ -207,12 +206,13 @@ public class MysqlMonk
 												{
 													if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
 													{
-														_lagStarted(s, s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server");
+														String msg = s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server";
+														_lagStarted(s, msg,c );
 													}
 													
 													if (oldLag >= s.m_maxAllowedLag && s.slaveLag < s.m_maxAllowedLag)
 													{
-														_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds");
+														_lagEnded(s, "Server " + s.niceName() + " is no longer lagging behind master " + master.niceName() + ", worse lag seen was " + s.maxLagSeen + " seconds",c);
 														s.maxLagSeen = 0;
 													}
 												}
@@ -402,6 +402,8 @@ public class MysqlMonk
 		
 		updateInterval = conf.selectIntProperty("mysql_monk.monitor.update_interval", 10);
 		int defaultMaxAllowedLag =  conf.selectIntProperty("mysql_monk.monitor.max_allowed_lag", 20);
+		int defaultSocketTimeout =  conf.selectIntProperty("mysql_monk.monitor.socket_timeout_sec", 20);
+		int defaultConnectionTimeout =  conf.selectIntProperty("mysql_monk.monitor.connection_timeout_sec", 20);
 		checkInterval = conf.selectIntProperty("mysql_monk.monitor.check_interval", 5);
 		
 		List<Swush> servers = conf.select("mysql_monk.server");
@@ -412,7 +414,7 @@ public class MysqlMonk
 		
 		for(Swush sw : servers)
 		{
-			ServerDef s = new ServerDef(sw, defaultMaxAllowedLag);
+			ServerDef s = new ServerDef(sw, defaultMaxAllowedLag, defaultConnectionTimeout, defaultSocketTimeout);
 			String id = s.getID();
 			ServerDef old = s_serversMap.put(id, s);
 			if (old != null) throw new IllegalArgumentException("Duplicate server with id " + id);
@@ -553,19 +555,33 @@ public class MysqlMonk
     	Logger.getLogger("org.logicalcobwebs").setLevel(Level.WARN);
 	}
 	
-	void _lagStarted(ServerDef server, String message)
+	void _lagStarted(ServerDef server, String message, Connection c)
 	{
 		for(EventHandler handler : eventHandlers)
 		{
-			handler.lagStarted(server, message);
+			try
+			{
+				handler.lagStarted(server, message, c);
+			}
+			catch (Exception e)
+			{
+				logger.error("_lagStarted : Error from handler " + handler.getClass().getName(), e);
+			}
 		}
 	}
 	
-	void _lagEnded(ServerDef server, String message)
+	void _lagEnded(ServerDef server, String message, Connection c)
 	{
 		for(EventHandler handler : eventHandlers)
 		{
-			handler.lagEnded(server, message);
+			try
+			{
+				handler.lagEnded(server, message, c);
+			}
+			catch (Exception e)
+			{
+				logger.error("_lagEnded : Error from handler " + handler.getClass().getName(), e);
+			}
 		}
 	}
 	
@@ -574,7 +590,14 @@ public class MysqlMonk
 		logger.info("Error in " + server.niceName()  + " : " + server, ex);
 		for(EventHandler handler : eventHandlers)
 		{
-			handler.error(server, message, ex);
+			try
+			{
+				handler.error(server, message, ex);
+			}
+			catch (Exception e)
+			{
+				logger.error("_error : Error from handler " + handler.getClass().getName(), e);
+			}			
 		}	
 	}
 	
@@ -583,7 +606,14 @@ public class MysqlMonk
 		logger.info("Error cleared in " + server.niceName()  + " : " + server);
 		for(EventHandler handler : eventHandlers)
 		{
-			handler.clearError(server, message);
+			try
+			{
+				handler.clearError(server, message);
+			}
+			catch (Exception e)
+			{
+				logger.error("_clearError : Error from handler " + handler.getClass().getName(), e);
+			}
 		}	
 	}
 
@@ -609,7 +639,7 @@ public class MysqlMonk
 	
 	private ExecutorService getThreadPool(int nt, final String namePrefix)
 	{
-		return Executors.newFixedThreadPool(nt, new ThreadFactory()
+		return Executors.newFixedThreadPool(Math.max(1, nt), new ThreadFactory()
 		{
 			int id = 0;
 			@Override

@@ -36,6 +36,11 @@ public class ServerDef
 	
 	// if slave, the lag from the server 
 	long slaveLag = 0;
+
+	// database connection timeout, defaults to 20 seconds 
+	int connTimeout;	
+	// database socket timeout, defaults to 20 seconds 
+	int socketTimeout;
 	
 	// maximum lag seen in this lag session
 	long maxLagSeen;
@@ -45,20 +50,22 @@ public class ServerDef
 	protected boolean m_installed = false;
 	
 	
-	ServerDef(Swush s, int defaultMaxAllowedLag)
+	ServerDef(Swush s, int defaultMaxAllowedLag, int defaultConnectionTimeout, int defaultSocketTimeout)
 	{
 		host = s.selectProperty("server.host");
 		port = s.selectIntProperty("server.port", 3306);
 		dbName = s.selectProperty("server.db_name");
 		user = s.selectProperty("server.username");
-		password = s.selectProperty("server.password");
+		password = s.selectProperty("server.password", "");
 		master = s.selectProperty("server.master");
+		socketTimeout = s.selectIntProperty("server.socket_timeout_sec", defaultSocketTimeout) * 1000;
+		connTimeout = s.selectIntProperty("server.connection_timeout_sec", defaultConnectionTimeout) * 1000; 
 		m_maxAllowedLag = s.selectLongProperty("server.max_allowed_lag", defaultMaxAllowedLag);
 	}
 	
 	public String getConnectionAlias()
 	{
-		return "proxool." + user + "_" + password + "_" + host + "_" + port + "_" + dbName;
+		return "proxool." + user + "_" + password + "_" + host + "_" + port + "_" + dbName + "?socketTimeout="+socketTimeout+"&connectTimeout=" + connTimeout;
 	}
 
 	public String toString()
