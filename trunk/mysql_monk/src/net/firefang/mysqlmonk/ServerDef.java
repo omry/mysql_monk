@@ -12,7 +12,7 @@ import net.firefang.swush.Swush;
 public class ServerDef
 {
 	long m_maxAllowedLag = 0;
-	
+
 	boolean isSlave = false;
 	boolean isMaster = false;
 
@@ -27,29 +27,28 @@ public class ServerDef
 	String password;
 
 	String master;
-	
+
 	// if master, the last update time
 	long updateTime = -1;
 
 	// if this server is a master, what is it's mysql server_id
-	int mysqlServerID = -1; 
-	
-	// if slave, the lag from the server 
+	int mysqlServerID = -1;
+
+	// if slave, the lag from the server
 	long slaveLag = 0;
 
-	// database connection timeout, defaults to 20 seconds 
-	int connTimeout;	
-	// database socket timeout, defaults to 20 seconds 
+	// database connection timeout, defaults to 20 seconds
+	int connTimeout;
+	// database socket timeout, defaults to 20 seconds
 	int socketTimeout;
-	
+
 	// maximum lag seen in this lag session
 	long maxLagSeen;
-	
+
 	boolean inError = false;
 
 	protected boolean m_installed = false;
-	
-	
+
 	ServerDef(Swush s, int defaultMaxAllowedLag, int defaultConnectionTimeout, int defaultSocketTimeout)
 	{
 		host = s.selectProperty("server.host");
@@ -59,13 +58,13 @@ public class ServerDef
 		password = s.selectProperty("server.password", "");
 		master = s.selectProperty("server.master");
 		socketTimeout = s.selectIntProperty("server.socket_timeout_sec", defaultSocketTimeout) * 1000;
-		connTimeout = s.selectIntProperty("server.connection_timeout_sec", defaultConnectionTimeout) * 1000; 
+		connTimeout = s.selectIntProperty("server.connection_timeout_sec", defaultConnectionTimeout) * 1000;
 		m_maxAllowedLag = s.selectLongProperty("server.max_allowed_lag", defaultMaxAllowedLag);
 	}
-	
+
 	public String getConnectionAlias()
 	{
-		return "proxool." + user + "_" + password + "_" + host + "_" + port + "_" + dbName + "?socketTimeout="+socketTimeout+"&connectTimeout=" + connTimeout;
+		return "proxool." + user + "_" + password + "_" + host + "_" + port + "_" + dbName + "?socketTimeout=" + socketTimeout + "&connectTimeout=" + connTimeout;
 	}
 
 	public String toString()
@@ -80,19 +79,19 @@ public class ServerDef
 	{
 		return host + "_" + port;
 	}
-	
+
 	public String niceName()
 	{
 		return host + (port != 3306 ? ":" + port : "");
 	}
-	
-	
-	
-	public boolean isInError() {
+
+	public boolean isInError()
+	{
 		return inError;
 	}
 
-	public void setInError(boolean inError) {
+	public void setInError(boolean inError)
+	{
 		this.inError = inError;
 	}
 
@@ -148,11 +147,13 @@ public class ServerDef
 		return true;
 	}
 
-	public String getHost() {
+	public String getHost()
+	{
 		return host;
 	}
-
 	
-	
-	
+	public boolean isSlave()
+	{
+		return master != null;
+	}
 }

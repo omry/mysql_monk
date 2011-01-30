@@ -41,8 +41,8 @@ public class MysqlMonk
 	int updateInterval;
 	
 	private Set<String> s_hosts;
-	private Map<String, ServerDef> s_serversMap;
-	private Map<String, ServerDef> s_aliasesMap;
+	private Map<String, ServerDef> m_serversMap;
+	private Map<String, ServerDef> m_aliasesMap;
 	private List<EventHandler> eventHandlers;
 
 	private Thread m_masterUpdater;
@@ -84,12 +84,12 @@ public class MysqlMonk
 		else
 		if (list)
 		{
-			List<String> servers = new ArrayList<String>(s_serversMap.keySet());
+			List<String> servers = new ArrayList<String>(m_serversMap.keySet());
 			Collections.sort(servers);
 			for(String s : servers)
 			{
-				ServerDef server = s_serversMap.get(s);
-				boolean hasAlias = s_aliasesMap.containsKey(server.host);
+				ServerDef server = m_serversMap.get(s);
+				boolean hasAlias = m_aliasesMap.containsKey(server.host);
 				logger.info(s  + (hasAlias ? " (alias = " + server.host + ")" : ""));
 			}
 		}
@@ -109,7 +109,7 @@ public class MysqlMonk
 	
 	private boolean isInstalled(String sid) throws SQLException
 	{
-		ServerDef server = s_serversMap.get(sid);
+		ServerDef server = m_serversMap.get(sid);
 		Connection c = DriverManager.getConnection(server.getConnectionAlias());
 		try
 		{
@@ -160,14 +160,14 @@ public class MysqlMonk
 	private void startChecking()
 	{
 		int ns = 0;
-		for (final ServerDef s : s_serversMap.values())	if (s.isSlave) ns++;
+		for (final ServerDef s : m_serversMap.values())	if (s.isSlave) ns++;
 		
 		ExecutorService pool = getThreadPool(Math.max(1, ns), "SlaveChecker_");
 		logger.info("Starting checker thread, checking every " + checkInterval + " seconds");
 		while(m_running)
 		{
 			final CountDownLatch latch = new CountDownLatch(ns);
-			for (final ServerDef s : s_serversMap.values())
+			for (final ServerDef s : m_serversMap.values())
 			{
 				if (s.isSlave)
 				{
@@ -277,15 +277,15 @@ public class MysqlMonk
 			{
 				logger.info("Updating masters every " + updateInterval + " seconds");
 				
-				final CountDownLatch latch = new CountDownLatch(s_serversMap.size());
+				final CountDownLatch latch = new CountDownLatch(m_serversMap.size());
 				int nm = 0;
-				for (ServerDef s : s_serversMap.values()) if (s.isMaster) nm++;
+				for (ServerDef s : m_serversMap.values()) if (s.isMaster) nm++;
 				ExecutorService pool = getThreadPool(nm, "MasterUpdater_");
 				
 				while(m_running)
 				{
 					final long now = System.currentTimeMillis() / 1000;
-					for (final ServerDef s : s_serversMap.values())
+					for (final ServerDef s : m_serversMap.values())
 					{
 						if (s.isMaster)
 						{
@@ -407,8 +407,8 @@ public class MysqlMonk
 		checkInterval = conf.selectIntProperty("mysql_monk.monitor.check_interval", 5);
 		
 		List<Swush> servers = conf.select("mysql_monk.server");
-		s_serversMap = new HashMap<String, ServerDef>();
-		s_aliasesMap = new HashMap<String, ServerDef>();
+		m_serversMap = new HashMap<String, ServerDef>();
+		m_aliasesMap = new HashMap<String, ServerDef>();
 		
 		Set<String> removed = new HashSet<String>(); 
 		
@@ -416,17 +416,17 @@ public class MysqlMonk
 		{
 			ServerDef s = new ServerDef(sw, defaultMaxAllowedLag, defaultConnectionTimeout, defaultSocketTimeout);
 			String id = s.getID();
-			ServerDef old = s_serversMap.put(id, s);
+			ServerDef old = m_serversMap.put(id, s);
 			if (old != null) throw new IllegalArgumentException("Duplicate server with id " + id);
 			
-			ServerDef ss = s_aliasesMap.get(s.host);
+			ServerDef ss = m_aliasesMap.get(s.host);
 			if (ss != null)
 			{
 				removed.add(s.host); // host run multiple servers, shoud use fully qualified id (host_port) to access.
 			}
 			else
 			{
-				s_aliasesMap.put(s.host, s);
+				m_aliasesMap.put(s.host, s);
 			}
 			
 			s_hosts.add(s.host);
@@ -434,11 +434,11 @@ public class MysqlMonk
 		
 		for(String rem : removed)
 		{
-			s_aliasesMap.remove(rem);
+			m_aliasesMap.remove(rem);
 		}
 		
 		
-		for(ServerDef s : s_serversMap.values())
+		for(ServerDef s : m_serversMap.values())
 		{
 			String masterID = s.master;
 			if (masterID != null)
@@ -467,8 +467,7 @@ public class MysqlMonk
 		{
 			String clazz = sw.selectProperty("handler.class");
 			EventHandler handler = (EventHandler) Class.forName(clazz).newInstance();
-			handler.init(sw);
-			handler.setMysqlMonk(this);
+			handler.init(this, sw);
 			eventHandlers.add(handler);
 			logger.debug("Adding event handler : " + handler.getClass().getName());
 		}
@@ -479,11 +478,16 @@ public class MysqlMonk
 		}
 	}
 
-	private ServerDef getServer(String id)
+	public Set<String> getServerNames()
 	{
-		ServerDef server = s_serversMap.get(id);
+		return m_serversMap.keySet();
+	}
+	
+	public ServerDef getServer(String id)
+	{
+		ServerDef server = m_serversMap.get(id);
 		if (server == null)
-			server = s_aliasesMap.get(id);
+			server = m_aliasesMap.get(id);
 		
 		if (server == null) throw new IllegalArgumentException("Server not found, id " + id + ", use --list to view available servers");
 		return server;
@@ -491,9 +495,9 @@ public class MysqlMonk
 	
 	private boolean isServer(String id)
 	{
-		ServerDef server = s_serversMap.get(id);
+		ServerDef server = m_serversMap.get(id);
 		if (server == null)
-			server = s_aliasesMap.get(id);
+			server = m_aliasesMap.get(id);
 		
 		if (server == null) 
 			return false;

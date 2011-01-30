@@ -14,7 +14,6 @@ public interface EventHandler
 	public void lagEnded(ServerDef server, String message, Connection c) throws Exception;
 	public void error(ServerDef server, String message, Exception ex) throws Exception;
 	public void clearError(ServerDef server, String message) throws Exception;
-	public void init(Swush sw) throws Exception;
-	public void setMysqlMonk(MysqlMonk mySqlMonk);
+	public void init(MysqlMonk monk, Swush handlerConf) throws Exception;
 }
 
