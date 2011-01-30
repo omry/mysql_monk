@@ -13,5 +13,6 @@ public interface EventHandler
 	public void error(ServerDef server, String message, Exception ex);
 	public void clearError(ServerDef server, String message);
 	public void init(Swush sw) throws Exception;
+	public void setMysqlMonk(MysqlMonk mySqlMonk);
 }
 
