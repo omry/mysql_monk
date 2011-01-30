@@ -24,26 +24,21 @@ public class EmailHandler implements EventHandler
 	
 	String m_from;
 	String m_recepients;
-	
+
 	@Override
-	public void setMysqlMonk(MysqlMonk mySqlMonk){
-		
-	}
-	
-	@Override
-	public void init(Swush sw) throws Exception
+	public void init(MysqlMonk monk, Swush handlerConf) throws Exception
 	{
-		String host = sw.selectProperty("handler.smtp_host", "localhost");
-		boolean debug = sw.selectBoolean("handler.smtp_debug", false);
-		m_from = sw.selectProperty("handler.from", "mysqlmonk@localhost");
-		m_recepients = implode(sw.selectFirst("handler.recepients").asArray(), ",");
+		String host = handlerConf.selectProperty("handler.smtp_host", "localhost");
+		boolean debug = handlerConf.selectBoolean("handler.smtp_debug", false);
+		m_from = handlerConf.selectProperty("handler.from", "mysqlmonk@localhost");
+		m_recepients = implode(handlerConf.selectFirst("handler.recepients").asArray(), ",");
 		if (m_recepients.length() == 0) throw new Exception("Email receipients not defined");
 		
-		boolean useSSL = sw.selectBoolean("handler.use_ssl", false);
-		boolean auth = sw.selectBoolean("handler.auth_user", false);
-		int port = sw.selectIntProperty("handler.port", 25);
-		String user = sw.selectProperty("handler.user","");
-		String password = sw.selectProperty("handler.password","");
+		boolean useSSL = handlerConf.selectBoolean("handler.use_ssl", false);
+		boolean auth = handlerConf.selectBoolean("handler.auth_user", false);
+		int port = handlerConf.selectIntProperty("handler.port", 25);
+		String user = handlerConf.selectProperty("handler.user","");
+		String password = handlerConf.selectProperty("handler.password","");
 		
 		m_emailSender = new EmailSender(host,useSSL,auth,port,user,password,debug);
 	}	
