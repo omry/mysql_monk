@@ -8,6 +8,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.mail.Message;
+import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
@@ -23,15 +24,54 @@ public class EmailSender
 
 	private ExecutorService m_threadPool;
 
-	public EmailSender(String mailhost, boolean debug)
+	String host;
+	boolean useSSL;
+	boolean authUser;
+	int port;
+	String user;
+	String password;
+	
+	public EmailSender(String mailhost, boolean useSSL, boolean auth, int port, String user, String password,boolean debug)
 	{
 		logger.info("Initializing EmailSender, mail host : " + mailhost + (debug  ? ", debug mode" : ""));
+		
+		this.host = mailhost;
+		this.useSSL = useSSL;
+		this.authUser = auth;
+	    this.port = port;
+	    this.user = user;
+	    this.password = password;
+		
 		Properties props = System.getProperties();
         if (mailhost != null)
             props.put("mail.smtp.host", mailhost);
+        if (useSSL){
+        	props.put("mail.smtp.socketFactory.port", String.valueOf(this.port));
+        	props.put("mail.smtp.socketFactory.class","javax.net.ssl.SSLSocketFactory");
+        }
+        if (auth)
+        	props.put("mail.smtp.auth", "true");
+ 
+        props.put("mail.smtp.port", String.valueOf(this.port));
         
-        m_session = Session.getInstance(props, null);
+
+        final String userName = user;
+        final String userPassword = password;
+        
+        if (this.useSSL && this.authUser){
+        	m_session = Session.getDefaultInstance(props,
+        			new javax.mail.Authenticator()
+        	{
+        		protected PasswordAuthentication getPasswordAuthentication()
+        		{ return new PasswordAuthentication(userName,userPassword);	}
+        	});
+        }else{
+        	m_session = Session.getInstance(props, null);
+        }
+        
         m_session.setDebug(debug);
+        
+        
         m_threadPool = Executors.newCachedThreadPool(new ThreadFactory()
 		{
         	AtomicInteger ii = new AtomicInteger();
@@ -64,7 +104,9 @@ public class EmailSender
 					msg.setSubject(subject);
 					msg.setText(message);
 					msg.setSentDate(new Date());
-					Transport.send(msg);		
+										
+					Transport.send(msg);
+				    
 				} 
 				catch (Exception e)
 				{

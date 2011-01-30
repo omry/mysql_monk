@@ -80,6 +80,15 @@ public class ServerDef
 	}
 	
 	
+	
+	public boolean isInError() {
+		return inError;
+	}
+
+	public void setInError(boolean inError) {
+		this.inError = inError;
+	}
+
 	@Override
 	public int hashCode()
 	{
@@ -131,4 +140,12 @@ public class ServerDef
 		else if (!user.equals(other.user)) return false;
 		return true;
 	}
+
+	public String getHost() {
+		return host;
+	}
+
+	
+	
+	
 }

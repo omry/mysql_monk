@@ -99,7 +99,14 @@ public class MysqlMonk
 		}
 
 	}
+	
+	
 
+	public List<EventHandler> getEventHandlers() {
+		return eventHandlers;
+	}
+
+	
 	private boolean isInstalled(String sid) throws SQLException
 	{
 		ServerDef server = s_serversMap.get(sid);
@@ -459,6 +466,7 @@ public class MysqlMonk
 			String clazz = sw.selectProperty("handler.class");
 			EventHandler handler = (EventHandler) Class.forName(clazz).newInstance();
 			handler.init(sw);
+			handler.setMysqlMonk(this);
 			eventHandlers.add(handler);
 			logger.debug("Adding event handler : " + handler.getClass().getName());
 		}
