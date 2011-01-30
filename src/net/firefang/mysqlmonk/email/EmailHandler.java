@@ -164,7 +164,6 @@ public class EmailHandler implements EventHandler
 			b.append(sep).append(set[i]);
 		}
 		return b.toString();
-
 	}
 }
 
