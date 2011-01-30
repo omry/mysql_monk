@@ -106,7 +106,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 			}
 			else
 			{
-				sendSmtpMessage(server, replicationStopMsg + "\nError code:  " + slaveStatus.getLastErrno() + " , not configured for restart.");
+				sendSmtpMessage(server, replicationStopMsg + ", not configured for restart.");
 			}
 		}
 		catch (SQLException e)
