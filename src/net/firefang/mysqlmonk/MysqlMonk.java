@@ -206,6 +206,8 @@ public class MysqlMonk
 												{
 													if (oldLag < s.m_maxAllowedLag && s.slaveLag >= s.m_maxAllowedLag)
 													{
+														logger.debug("oldLag < s.m_maxAllowedLag  && s.slaveLag >= s.m_maxAllowedLag : " + oldLag + "<" + s.m_maxAllowedLag + " && " + s.slaveLag
+																+ ">=" + s.m_maxAllowedLag);
 														String msg = s.niceName() + " is lagging behind master " + master.niceName() + " by more than the allowed " + s.m_maxAllowedLag  + " seconds lag for this server";
 														_lagStarted(s, msg,c );
 													}
