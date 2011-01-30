@@ -291,7 +291,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 		String slaveIORunning = slaveStatus.isSlaveIoRunning() ? "Yes" : "No";
 		String slaveSQLRunning = slaveStatus.isSlaveSqlRunning() ? "Yes" : "No";
 
-		String replicationStatus = "MySqlSlavestatus: " + "Slave_IO_Running: " + slaveIORunning + ", " + "Slave_IO_Running: " + slaveSQLRunning + ", " + "Last_Errno: " + slaveStatus.getLastErrno()
+		String replicationStatus = "MySqlSlavestatus: " + "Slave_IO_Running: " + slaveIORunning + ", " + "Slave_SQL_Running: " + slaveSQLRunning + ", " + "Last_Errno: " + slaveStatus.getLastErrno()
 				+ ", Last_Error: " + slaveStatus.getLastError();
 		return replicationStatus;
 	}
