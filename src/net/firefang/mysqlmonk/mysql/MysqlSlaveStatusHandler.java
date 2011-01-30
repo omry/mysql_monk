@@ -6,14 +6,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import org.apache.log4j.Logger;
-
 import net.firefang.mysqlmonk.EventHandler;
 import net.firefang.mysqlmonk.MysqlMonk;
 import net.firefang.mysqlmonk.ServerDef;
 import net.firefang.mysqlmonk.email.EmailHandler;
-import net.firefang.mysqlmonk.email.EmailSender;
 import net.firefang.swush.Swush;
+
+import org.apache.log4j.Logger;
 
 /**
  * @author Christopher Donaldson <chrisdonaldson@gmail.com>

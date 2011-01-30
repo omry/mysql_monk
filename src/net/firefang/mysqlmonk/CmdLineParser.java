@@ -495,7 +495,7 @@ public class CmdLineParser
 		return getOptionValue(longForm, def);
 	}
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	public final Object getOptionValue(String longform, Object def)
 	{
 		Vector v = (Vector) values.get(longform);
@@ -521,7 +521,9 @@ public class CmdLineParser
 	 *         given Option, or an empty Vector if the option was not set.
 	 * @throws IllegalOptionValueException 
 	 */
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({
+			"rawtypes", "unchecked"
+	})
 	public final Vector getOptionValues(Option option) throws IllegalOptionValueException
 	{
 		Vector result = new Vector();
@@ -575,7 +577,9 @@ public class CmdLineParser
 	 * command-line arguments. The specified locale is used for parsing options
 	 * whose values might be locale-specific.
 	 */
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({
+			"rawtypes", "unchecked"
+	})
 	public final void parse(String[] argv, Locale locale) throws IllegalOptionValueException, UnknownOptionException
 	{
 
@@ -662,7 +666,9 @@ public class CmdLineParser
 		otherArgs.copyInto(remainingArgs);
 	}
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({
+			"rawtypes", "unchecked"
+	})
 	private void addValue(Option opt, Object value)
 	{
 		String lf = opt.longForm();
@@ -678,7 +684,7 @@ public class CmdLineParser
 		v.addElement(value);
 	}
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	public Hashtable getOptions()
 	{
 		return longForms;
@@ -692,13 +698,13 @@ public class CmdLineParser
 
 	private String[] remainingArgs = null;
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	private Hashtable options = new Hashtable(10);
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	private Hashtable longForms = new Hashtable(10);
 
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("rawtypes")
 	private Hashtable values = new Hashtable(10);
 	
 	

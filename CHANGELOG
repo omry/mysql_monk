@@ -1,1 +1,4 @@
+30/01/2011 : Accepted patch from Christopher Donaldson:
+				SSL support in email handler
+				MysqlSlaveStatusHandler can restart replication on deadlock errors (mysql bug: http://bugs.mysql.com/bug.php?id=45694)
 11/08/2009 : Created changelog :)
