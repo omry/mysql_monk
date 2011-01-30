@@ -26,7 +26,7 @@ public class MysqlSlaveStatus
 	{
 		super();
 		this.lastErrno = lastErrno;
-		this.lastError = lastError;
+		this.lastError = lastError.replace('\n', ' ');
 		this.slaveIoRunning = slaveIoRunning;
 		this.slaveSqlRunning = slaveSqlRunning;
 		this.secondsBehindMaster = secondsBehindMaster;
