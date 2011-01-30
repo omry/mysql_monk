@@ -59,59 +59,52 @@ public class MysqlSlaveStatusHandler implements EventHandler{
 	}
 	
 	@Override
-	public void lagEnded(ServerDef server, String message) {
+	public void lagEnded(ServerDef server, String message, Connection c) {
 		checkMysqlSlaveStatus(server, message);
 	}
 
 	@Override
-	public void lagStarted(ServerDef server, String message) {
-		checkAndRestartMysqlSlaveStaus(server, message);
+	public void lagStarted(ServerDef server, String message, Connection c) {
+		checkAndRestartMysqlSlaveStaus(server, message, c);
 	}
 
-	private synchronized void checkAndRestartMysqlSlaveStaus(ServerDef server,String message){
+	private synchronized void checkAndRestartMysqlSlaveStaus(ServerDef server,String message, Connection c){
 		try {
 			if(!isMonitoredServer(server))
 				return;
 			
-			Connection c = DriverManager.getConnection(server.getConnectionAlias());
-			try{
-				MysqlSlaveStatus slaveStatus = getMysqlSlaveStatus(c);
-				if (slaveStatus == null){
-					sendSmtpError(server,"Can't get mysql slave status",null);
-					return;
-				}
-				String replicationStatus = getReplicationStatus(slaveStatus); 
-				logger.info(replicationStatus);
-				if (isMySqlSlaveOk(slaveStatus)){
-					return;
-				}
-				
-				String replicationStopMsg = message+"\n"+"Replication stopped or falied on server: "+server.getHost()+"\n"+replicationStatus+"\n"; 
-				sendSmtpMessage(server,replicationStopMsg);
-				
-				if(isRestartErrorNum(slaveStatus.getLastErrno())){
-					logger.info("Trying to restart mysql slave on server: "+ server.getHost());
-					if (!restartMysqlSlave(c)){
-						logger.info("Failed to restart mysql slave on server: " + server.getHost());
-						sendSmtpError(server, replicationStopMsg+"Failed to restart mysql slave on server: "+server.getHost(),null);
-						return;
-					}{
-						sleep(1500);
-						logger.info("Mysql slave restarted on server: " + server.getHost());
-						slaveStatus = getMysqlSlaveStatus(c);
-						replicationStatus = getReplicationStatus(slaveStatus); 
-						logger.info("Updated status after restarting slave on server: "+ server.getHost()+" "+replicationStatus);
-						sendSmtpMessage(server, "Updated status after restarting slave on server: "+ server.getHost()+" \n"+replicationStatus);
-					}
-					
-				}else{
-					sendSmtpMessage(server, replicationStopMsg+"\nError code:  "+ slaveStatus.getLastErrno()+" , not configured for restart.");
-				}
+			MysqlSlaveStatus slaveStatus = getMysqlSlaveStatus(c);
+			if (slaveStatus == null){
+				sendSmtpError(server,"Can't get mysql slave status",null);
+				return;
 			}
-			finally{
-				c.close();
+			String replicationStatus = getReplicationStatus(slaveStatus); 
+			logger.info(replicationStatus);
+			if (isMySqlSlaveOk(slaveStatus)){
+				return;
 			}
 			
+			String replicationStopMsg = message+"\n"+"Replication stopped or falied on server: "+server.getHost()+"\n"+replicationStatus+"\n"; 
+			sendSmtpMessage(server,replicationStopMsg);
+			
+			if(isRestartErrorNum(slaveStatus.getLastErrno())){
+				logger.info("Trying to restart mysql slave on server: "+ server.getHost());
+				if (!restartMysqlSlave(c)){
+					logger.info("Failed to restart mysql slave on server: " + server.getHost());
+					sendSmtpError(server, replicationStopMsg+"Failed to restart mysql slave on server: "+server.getHost(),null);
+					return;
+				}{
+					sleep(1500);
+					logger.info("Mysql slave restarted on server: " + server.getHost());
+					slaveStatus = getMysqlSlaveStatus(c);
+					replicationStatus = getReplicationStatus(slaveStatus); 
+					logger.info("Updated status after restarting slave on server: "+ server.getHost()+" "+replicationStatus);
+					sendSmtpMessage(server, "Updated status after restarting slave on server: "+ server.getHost()+" \n"+replicationStatus);
+				}
+				
+			}else{
+				sendSmtpMessage(server, replicationStopMsg+"\nError code:  "+ slaveStatus.getLastErrno()+" , not configured for restart.");
+			}
 		}catch (SQLException e)
 		{
 			String error = "SQLException";
@@ -178,8 +171,14 @@ public class MysqlSlaveStatusHandler implements EventHandler{
 		logger.info("Error in " + server.niceName()  + " : " + server, ex);
 		for(EventHandler handler : mySqlMonk.getEventHandlers())
 		{
-			if (handler instanceof EmailHandler)
+			if (handler instanceof EmailHandler) try
+			{
 				handler.error(server, message, ex);
+			}
+			catch (Exception e)
+			{
+				logger.error("Error", e);
+			}
 		}	
 	}
 	
@@ -188,7 +187,16 @@ public class MysqlSlaveStatusHandler implements EventHandler{
 		for(EventHandler handler : mySqlMonk.getEventHandlers())
 		{
 			if (handler instanceof EmailHandler)
-				handler.clearError(server, message);
+			{
+				try
+				{
+					handler.clearError(server, message);
+				}
+				catch (Exception e)
+				{
+					logger.error("Error", e);
+				}
+			}
 		}	
 	}
 
