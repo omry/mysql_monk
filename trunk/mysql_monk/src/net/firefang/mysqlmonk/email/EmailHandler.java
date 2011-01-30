@@ -86,7 +86,7 @@ public class EmailHandler implements EventHandler
 			StringBuffer sb = new StringBuffer();
 			sb.append(message);
 			sb.append("\n");
-			sb.append("Mysql process list when lag started : \n");
+			sb.append("Mysql process list when this messages was triggered : \n");
 			sb.append("id\tuser\thost\tdb\tcommand\ttime\tstate\tinfo\n");
 			for(MysqlProc p : proclist)
 			{
