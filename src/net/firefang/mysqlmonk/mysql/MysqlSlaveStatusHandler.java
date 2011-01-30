@@ -82,7 +82,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 				return;
 			}
 
-			String replicationStopMsg = message + "\n" + "Replication stopped or falied on server: " + server.getHost() + "\n" + replicationStatus + "\n";
+			String replicationStopMsg = "Replication stopped or falied on server: " + server.getHost() + "\n" + replicationStatus + "\n";
 			sendSmtpMessage(server, replicationStopMsg);
 
 			if (isRestartErrorNum(slaveStatus.getLastErrno()))
@@ -92,8 +92,8 @@ public class MysqlSlaveStatusHandler implements EventHandler
 				{
 					logger.info("Failed to restart mysql slave on server: " + server.getHost());
 					sendSmtpError(server, replicationStopMsg + "Failed to restart mysql slave on server: " + server.getHost(), null);
-					return;
 				}
+				else
 				{
 					sleep(1500);
 					logger.info("Mysql slave restarted on server: " + server.getHost());
@@ -197,7 +197,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 
 	private void sendSmtpMessage(ServerDef server, String message)
 	{
-		logger.info("Request smtp in " + server.niceName() + " : " + server);
+		logger.info("Request smtp in " + server.niceName() + " : " + message);
 		for (EventHandler handler : mySqlMonk.getEventHandlers())
 		{
 			if (handler instanceof EmailHandler)
