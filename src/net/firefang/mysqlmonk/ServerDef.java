@@ -26,7 +26,7 @@ public class ServerDef
 
 	String password;
 
-	String master;
+	private String master;
 
 	// if master, the last update time
 	long updateTime = -1;
@@ -103,7 +103,7 @@ public class ServerDef
 		result = prime * result + ((dbName == null) ? 0 : dbName.hashCode());
 		result = prime * result + ((host == null) ? 0 : host.hashCode());
 		result = prime * result + (isMaster ? 1231 : 1237);
-		result = prime * result + ((master == null) ? 0 : master.hashCode());
+		result = prime * result + ((getMaster() == null) ? 0 : getMaster().hashCode());
 		result = prime * result + ((password == null) ? 0 : password.hashCode());
 		result = prime * result + port;
 		result = prime * result + ((user == null) ? 0 : user.hashCode());
@@ -128,11 +128,11 @@ public class ServerDef
 		}
 		else if (!host.equals(other.host)) return false;
 		if (isMaster != other.isMaster) return false;
-		if (master == null)
+		if (getMaster() == null)
 		{
-			if (other.master != null) return false;
+			if (other.getMaster() != null) return false;
 		}
-		else if (!master.equals(other.master)) return false;
+		else if (!getMaster().equals(other.getMaster())) return false;
 		if (password == null)
 		{
 			if (other.password != null) return false;
@@ -155,5 +155,11 @@ public class ServerDef
 	public boolean isSlave()
 	{
 		return isSlave;
+	}
+
+
+	public String getMaster()
+	{
+		return master;
 	}
 }
