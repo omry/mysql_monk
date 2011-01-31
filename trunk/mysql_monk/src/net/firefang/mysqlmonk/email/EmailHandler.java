@@ -89,8 +89,8 @@ public class EmailHandler implements EventHandler
 			sb.append("\n");
 			sb.append("Mysql process list when this messages was triggered : \n");
 			sb.append(Utils.rpad("id", 8, ' '));
-			sb.append(Utils.rpad("user", 8, ' '));
-			sb.append(Utils.rpad("host", 20, ' '));
+			sb.append(Utils.rpad("user", 16, ' '));
+			sb.append(Utils.rpad("host", 24, ' '));
 			sb.append(Utils.rpad("db", 20, ' '));
 			sb.append(Utils.rpad("command", 10, ' '));
 			sb.append(Utils.rpad("time", 6, ' '));
@@ -109,9 +109,11 @@ public class EmailHandler implements EventHandler
 				mm.put(p.command, ++ii);
 				commands.add(p.command);
 				
+				if (p.command.equals("Sleep")) continue;
+				
 				sb.append(Utils.rpad(""+p.id, 8, ' '));
-				sb.append(Utils.rpad(p.user	, 8, ' '));
-				sb.append(Utils.rpad(p.host	, 20, ' '));
+				sb.append(Utils.rpad(p.user	, 16, ' '));
+				sb.append(Utils.rpad(p.host	, 24, ' '));
 				sb.append(Utils.rpad(p.db	, 20, ' '));
 				sb.append(Utils.rpad(p.command, 10, ' '));
 				sb.append(Utils.rpad(""+p.time	, 6, ' '));
@@ -126,7 +128,7 @@ public class EmailHandler implements EventHandler
 				sb.append(Utils.rpad("hostname", 16, ' '));
 				for(String command : Utils.getSorted(commands))
 				{
-					sb.append(Utils.rpad(command, 10, ' '));
+					sb.append(Utils.rpad(command, 16, ' '));
 				}
 				sb.append("\n");
 				for(String hostname : Utils.getSortedKeys(host2SleepCount))
@@ -135,7 +137,7 @@ public class EmailHandler implements EventHandler
 					Map<String, Integer> mm = host2SleepCount.get(hostname);
 					for(String command : Utils.getSortedKeys(mm))
 					{
-						sb.append(Utils.rpad(""+mm.get(command), 10, ' '));
+						sb.append(Utils.rpad(""+mm.get(command), 16, ' '));
 					}
 					sb.append("\n");
 				}
