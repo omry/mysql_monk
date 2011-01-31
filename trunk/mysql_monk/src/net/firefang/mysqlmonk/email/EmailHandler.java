@@ -92,7 +92,7 @@ public class EmailHandler implements EventHandler
 			sb.append(Utils.rpad("host", 30, ' '));
 			sb.append(Utils.rpad("db", 16, ' '));
 			sb.append(Utils.rpad("command", 20, ' '));
-			sb.append(Utils.rpad("time", 6, ' '));
+			sb.append(Utils.rpad("time", 9, ' '));
 			sb.append(Utils.rpad("state", 16, ' '));
 			sb.append(Utils.rpad("info", 8, ' '));
 			sb.append("\n");
@@ -115,7 +115,7 @@ public class EmailHandler implements EventHandler
 				sb.append(Utils.rpad(p.host	, 30, ' '));
 				sb.append(Utils.rpad(p.db	, 16, ' '));
 				sb.append(Utils.rpad(p.command, 20, ' '));
-				sb.append(Utils.rpad(""+p.time	, 6, ' '));
+				sb.append(Utils.rpad(""+p.time	, 9, ' '));
 				sb.append(Utils.rpad(p.state	, 16, ' '));
 				sb.append(p.info);
 				sb.append("\n");
