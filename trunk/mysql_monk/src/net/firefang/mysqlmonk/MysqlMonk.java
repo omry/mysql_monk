@@ -62,6 +62,7 @@ public class MysqlMonk
 		p.addBooleanOption("install");
 		p.addBooleanOption("list");
 		p.addStringOption("server");
+		p.addBooleanOption("status");
 		p.parse(args);
 		
 		
@@ -72,6 +73,7 @@ public class MysqlMonk
 		
 		boolean install = (Boolean)p.getOptionValue("install", Boolean.FALSE);
 		boolean list = (Boolean)p.getOptionValue("list", Boolean.FALSE);
+		boolean status = (Boolean)p.getOptionValue("status", Boolean.FALSE);
 		if (install)
 		{
 			String sid = (String)p.getOptionValue("server", -1);
@@ -92,6 +94,19 @@ public class MysqlMonk
 				boolean hasAlias = m_aliasesMap.containsKey(server.host);
 				logger.info(s  + (hasAlias ? " (alias = " + server.host + ")" : ""));
 			}
+		}
+		else
+		if (status)
+		{
+			String sid = (String)p.getOptionValue("server");
+			if (sid == null) throw new RuntimeException("server not specified");
+			ServerDef server = getServer(sid);
+			if (server == null)
+			{
+				logger.warn("Unknown server " + sid);
+				System.exit(1);
+			}
+			System.out.println(Utils.getProcTable(Utils.getProcList(server)));
 		}
 		else
 		{
@@ -188,7 +203,7 @@ public class MysqlMonk
 									
 									try
 									{
-										ServerDef master = getServer(s.master);
+										ServerDef master = getServer(s.getMaster());
 										logger.debug("Checking lag in " + s.niceName());
 										String lastUpdate = getVar(c, "SELECT UNIX_TIMESTAMP(last_update) FROM " + s.dbName + ".mysql_monk WHERE master_id = " + master.mysqlServerID);
 										if (lastUpdate != null)
@@ -439,7 +454,7 @@ public class MysqlMonk
 		
 		for(ServerDef s : m_serversMap.values())
 		{
-			String masterID = s.master;
+			String masterID = s.getMaster();
 			if (masterID != null)
 			{
 				if (isServer(masterID))

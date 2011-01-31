@@ -1,11 +1,20 @@
 package net.firefang.mysqlmonk;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import net.firefang.mysqlmonk.email.EmailHandler;
 
 public class Utils
 {
@@ -70,5 +79,110 @@ public class Utils
 		}
 		else
 			return s;
+	}
+	
+	public static List<MysqlProc> getProcList(ServerDef server) throws SQLException
+	{
+		Connection c = null;
+		try
+		{
+			c = DriverManager.getConnection(server.getConnectionAlias());
+			return getProcList(c);
+		}
+		finally
+		{
+			if (c != null)
+				c.close();
+		}
+	}
+
+	public static List<MysqlProc> getProcList(Connection c) throws SQLException
+	{
+		List<MysqlProc> res = new ArrayList<MysqlProc>();
+		Statement st = c.createStatement();
+		ResultSet rs = null;
+		try
+		{
+			st.execute("SHOW PROCESSLIST");
+			rs = st.getResultSet();
+			while(rs.next())
+			{
+				MysqlProc p = new MysqlProc();
+				p.id = rs.getInt("id");
+				p.user = rs.getString("user");
+				p.host = rs.getString("host");
+				p.db = rs.getString("db");
+				p.command = rs.getString("command");
+				p.time = rs.getInt("time");
+				p.state = rs.getString("state");
+				p.info = rs.getString("info");
+				res.add(p);
+			}
+		}
+		finally
+		{
+			if (rs != null)
+				rs.close();
+			st.close();
+		}
+		return res;
+	}
+
+	public static String getProcTable(List<MysqlProc> proclist)
+	{
+		StringBuffer sb = new StringBuffer();
+		Set<String> commands = new HashSet<String>();
+		Map<String, Map<String, Integer>> host2CommandCount = new HashMap<String, Map<String,Integer>>();
+		EmailHandler.crunchProcessList(proclist, commands, host2CommandCount);
+		
+		sb.append("\n");
+		sb.append("Mysql process list when this messages was triggered : \n");
+		sb.append(rpad("id", 8, ' '));
+		sb.append(rpad("user", 14, ' '));
+		sb.append(rpad("host", 30, ' '));
+		sb.append(rpad("db", 16, ' '));
+		sb.append(rpad("command", 20, ' '));
+		sb.append(rpad("time", 9, ' '));
+		sb.append(rpad("state", 16, ' '));
+		sb.append(rpad("info", 8, ' '));
+		sb.append("\n");
+		for(MysqlProc p : proclist)
+		{
+			if (p.command.equals("Sleep")) continue;
+			sb.append(rpad(""+p.id, 8, ' '));
+			sb.append(rpad(p.user	, 14, ' '));
+			sb.append(rpad(p.host	, 30, ' '));
+			sb.append(rpad(p.db	, 16, ' '));
+			sb.append(rpad(p.command, 20, ' '));
+			sb.append(rpad(""+p.time	, 9, ' '));
+			sb.append(rpad(p.state	, 16, ' '));
+			sb.append(p.info);
+			sb.append("\n");
+		}
+		
+		sb.append("\n");
+		if (host2CommandCount.size() > 0)
+		{
+			sb.append(rpad("hostname", 30, ' '));
+			for(String command : getSorted(commands))
+			{
+				sb.append(rpad(command, 16, ' '));
+			}
+			sb.append("\n");
+			for(String hostname : getSortedKeys(host2CommandCount))
+			{
+				sb.append(rpad(hostname, 30, ' '));
+				Map<String, Integer> mm = host2CommandCount.get(hostname);
+				for(String command : getSorted(commands))
+				{
+					Integer ii = mm.get(command);
+					sb.append(rpad("" + (ii != null ? ii : " "), 16, ' '));
+				}
+				sb.append("\n");
+			}
+		}
+		
+		String table = sb.toString();
+		return table;
 	}
 }
