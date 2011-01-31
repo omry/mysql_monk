@@ -138,8 +138,7 @@ public class EmailHandler implements EventHandler
 					for(String command : Utils.getSorted(commands))
 					{
 						Integer ii = mm.get(command);
-						if (ii == null) ii = 0;
-						sb.append(Utils.rpad(""+ii, 16, ' '));
+						sb.append(Utils.rpad("" + (ii != null ? ii : " "), 16, ' '));
 					}
 					sb.append("\n");
 				}
