@@ -89,12 +89,12 @@ public class EmailHandler implements EventHandler
 			sb.append("\n");
 			sb.append("Mysql process list when this messages was triggered : \n");
 			sb.append(Utils.rpad("id", 8, ' '));
-			sb.append(Utils.rpad("user", 16, ' '));
-			sb.append(Utils.rpad("host", 24, ' '));
-			sb.append(Utils.rpad("db", 20, ' '));
-			sb.append(Utils.rpad("command", 10, ' '));
+			sb.append(Utils.rpad("user", 14, ' '));
+			sb.append(Utils.rpad("host", 30, ' '));
+			sb.append(Utils.rpad("db", 16, ' '));
+			sb.append(Utils.rpad("command", 20, ' '));
 			sb.append(Utils.rpad("time", 6, ' '));
-			sb.append(Utils.rpad("state", 8, ' '));
+			sb.append(Utils.rpad("state", 16, ' '));
 			sb.append(Utils.rpad("info", 8, ' '));
 			sb.append("\n");
 			Set<String> commands = new HashSet<String>();
@@ -112,12 +112,12 @@ public class EmailHandler implements EventHandler
 				if (p.command.equals("Sleep")) continue;
 				
 				sb.append(Utils.rpad(""+p.id, 8, ' '));
-				sb.append(Utils.rpad(p.user	, 16, ' '));
-				sb.append(Utils.rpad(p.host	, 24, ' '));
-				sb.append(Utils.rpad(p.db	, 20, ' '));
-				sb.append(Utils.rpad(p.command, 10, ' '));
+				sb.append(Utils.rpad(p.user	, 14, ' '));
+				sb.append(Utils.rpad(p.host	, 30, ' '));
+				sb.append(Utils.rpad(p.db	, 16, ' '));
+				sb.append(Utils.rpad(p.command, 20, ' '));
 				sb.append(Utils.rpad(""+p.time	, 6, ' '));
-				sb.append(Utils.rpad(p.state	, 8, ' '));
+				sb.append(Utils.rpad(p.state	, 16, ' '));
 				sb.append(p.info);
 				sb.append("\n");
 			}
@@ -125,7 +125,7 @@ public class EmailHandler implements EventHandler
 			sb.append("\n");
 			if (host2SleepCount.size() > 0)
 			{
-				sb.append(Utils.rpad("hostname", 16, ' '));
+				sb.append(Utils.rpad("hostname", 30, ' '));
 				for(String command : Utils.getSorted(commands))
 				{
 					sb.append(Utils.rpad(command, 16, ' '));
@@ -133,11 +133,13 @@ public class EmailHandler implements EventHandler
 				sb.append("\n");
 				for(String hostname : Utils.getSortedKeys(host2SleepCount))
 				{
-					sb.append(Utils.rpad(hostname, 16, ' '));
+					sb.append(Utils.rpad(hostname, 30, ' '));
 					Map<String, Integer> mm = host2SleepCount.get(hostname);
-					for(String command : Utils.getSortedKeys(mm))
+					for(String command : Utils.getSorted(commands))
 					{
-						sb.append(Utils.rpad(""+mm.get(command), 16, ' '));
+						Integer ii = mm.get(command);
+						if (ii == null) ii = 0;
+						sb.append(Utils.rpad(""+ii, 16, ' '));
 					}
 					sb.append("\n");
 				}
