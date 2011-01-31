@@ -42,7 +42,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 	@Override
 	public void error(ServerDef server, String message, Exception ex)
 	{
-		logger.info("Server error: " + message);
+		logger.error("Server error: " + message);
 	}
 
 	@Override
@@ -76,7 +76,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 				return;
 			}
 			String replicationStatus = getReplicationStatus(slaveStatus);
-			logger.info(replicationStatus);
+			logger.debug(replicationStatus);
 			if (isMySqlSlaveOk(slaveStatus))
 			{
 				return;
@@ -90,7 +90,7 @@ public class MysqlSlaveStatusHandler implements EventHandler
 				logger.info("Trying to restart mysql slave on server: " + server.getHost());
 				if (!restartMysqlSlave(c))
 				{
-					logger.info("Failed to restart mysql slave on server: " + server.getHost());
+					logger.warn("Failed to restart mysql slave on server: " + server.getHost());
 					sendSmtpError(server, replicationStopMsg + "Failed to restart mysql slave on server: " + server.getHost(), null);
 				}
 				else
