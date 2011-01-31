@@ -154,6 +154,6 @@ public class ServerDef
 	
 	public boolean isSlave()
 	{
-		return master != null;
+		return isSlave;
 	}
 }

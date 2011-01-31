@@ -1,5 +1,6 @@
 package net.firefang.mysqlmonk.email;
 
+import java.awt.color.CMMException;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.sql.Connection;
@@ -7,11 +8,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import net.firefang.mysqlmonk.EventHandler;
 import net.firefang.mysqlmonk.MysqlMonk;
 import net.firefang.mysqlmonk.ServerDef;
+import net.firefang.mysqlmonk.Utils;
 import net.firefang.swush.Swush;
 
 /**
@@ -82,21 +88,63 @@ public class EmailHandler implements EventHandler
 			sb.append(message);
 			sb.append("\n");
 			sb.append("Mysql process list when this messages was triggered : \n");
-			sb.append("id\tuser\thost\tdb\tcommand\ttime\tstate\tinfo\n");
+			sb.append(Utils.rpad("id", 8, ' '));
+			sb.append(Utils.rpad("user", 8, ' '));
+			sb.append(Utils.rpad("host", 20, ' '));
+			sb.append(Utils.rpad("db", 20, ' '));
+			sb.append(Utils.rpad("command", 10, ' '));
+			sb.append(Utils.rpad("time", 6, ' '));
+			sb.append(Utils.rpad("state", 8, ' '));
+			sb.append(Utils.rpad("info", 8, ' '));
+			sb.append("\n");
+			Set<String> commands = new HashSet<String>();
+			Map<String, Map<String, Integer>> host2SleepCount = new HashMap<String, Map<String,Integer>>(); 
 			for(MysqlProc p : proclist)
 			{
-				sb.append(p.id).append("\t");
-				sb.append(p.user).append("\t");
-				sb.append(p.host).append("\t");
-				sb.append(p.db).append("\t");
-				sb.append(p.command).append("\t");
-				sb.append(p.state).append("\t");
+				String hostName = p.getHostName();
+				Map<String, Integer> mm = host2SleepCount.get(hostName);
+				if (mm == null) host2SleepCount.put(hostName, mm = new HashMap<String, Integer>());
+				Integer ii = mm.get(p.command);
+				if (ii == null) ii = 0;
+				mm.put(p.command, ++ii);
+				commands.add(p.command);
+				
+				sb.append(Utils.rpad(""+p.id, 8, ' '));
+				sb.append(Utils.rpad(p.user	, 8, ' '));
+				sb.append(Utils.rpad(p.host	, 20, ' '));
+				sb.append(Utils.rpad(p.db	, 20, ' '));
+				sb.append(Utils.rpad(p.command, 10, ' '));
+				sb.append(Utils.rpad(""+p.time	, 6, ' '));
+				sb.append(Utils.rpad(p.state	, 8, ' '));
 				sb.append(p.info);
 				sb.append("\n");
 			}
+			
+			sb.append("\n");
+			if (host2SleepCount.size() > 0)
+			{
+				sb.append(Utils.rpad("hostname", 16, ' '));
+				for(String command : Utils.getSorted(commands))
+				{
+					sb.append(Utils.rpad(command, 10, ' '));
+				}
+				sb.append("\n");
+				for(String hostname : Utils.getSortedKeys(host2SleepCount))
+				{
+					sb.append(Utils.rpad(hostname, 16, ' '));
+					Map<String, Integer> mm = host2SleepCount.get(hostname);
+					for(String command : Utils.getSortedKeys(mm))
+					{
+						sb.append(Utils.rpad(""+mm.get(command), 10, ' '));
+					}
+					sb.append("\n");
+				}
+			}
+			
 			message = sb.toString();
+			System.out.println(message);
 		}
-		m_emailSender.send(m_from, m_recepients, title, message);
+//		m_emailSender.send(m_from, m_recepients, title, message);
 	}
 	
 	static class MysqlProc
@@ -114,6 +162,15 @@ public class EmailHandler implements EventHandler
 		public String toString()
 		{
 			return id + " " + user + " " + host + " " + db + " " + command + " " + time + " " + state + " " + info; 
+		}
+
+		public String getHostName()
+		{
+			int i = host.indexOf(':');
+			if (i == -1)
+				return host;
+			else 
+				return host.substring(0, i);
 		}
 	}
 	
