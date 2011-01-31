@@ -1,6 +1,5 @@
 package net.firefang.mysqlmonk.email;
 
-import java.awt.color.CMMException;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.sql.Connection;
