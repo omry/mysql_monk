@@ -142,9 +142,8 @@ public class EmailHandler implements EventHandler
 			}
 			
 			message = sb.toString();
-			System.out.println(message);
 		}
-//		m_emailSender.send(m_from, m_recepients, title, message);
+		m_emailSender.send(m_from, m_recepients, title, message);
 	}
 	
 	static class MysqlProc
