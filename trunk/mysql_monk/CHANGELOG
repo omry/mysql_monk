@@ -1,4 +1,4 @@
-30/01/2011 : Added processlist to lag start email to help determine the lag cause
+30/01/2011 : Added processlist information to lag-start-email to help determine the lag cause
 30/01/2011 : Added Connect read timeout to mysql connections
 30/01/2011 : Accepted patch from Christopher Donaldson:
 				SSL support in email handler
